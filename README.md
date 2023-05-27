@@ -12,4 +12,4 @@ Entry by **raysplaceinspace**
 ## Development
 
 1. Run `./start.sh` to watch the source code and merge it each time
-2. Use the CodinGame sync Chrome extension to sync /target/merge/merged.rs into CodinGame
+2. Use the CodinGame sync Chrome extension to sync `/target/merge/merged.rs` into CodinGame
