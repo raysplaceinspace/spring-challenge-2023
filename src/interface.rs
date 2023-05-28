@@ -5,7 +5,7 @@ macro_rules! parse_input {
     ($x:expr, $t:ident) => ($x.trim().parse::<$t>().unwrap())
 }
 
-pub fn read_initial(layout: &mut Layout, state: &mut State) {
+pub fn read_initial(layout: &mut Layout, states: &mut Vec<CellState>) {
     let mut input_line = String::new();
     io::stdin().read_line(&mut input_line).unwrap();
     let number_of_cells = parse_input!(input_line, i32); // amount of hexagonal cells in this map
@@ -36,7 +36,7 @@ pub fn read_initial(layout: &mut Layout, state: &mut State) {
             neighbors,
         });
 
-        state.cells.push(CellState {
+        states.push(CellState {
             resources: initial_resources,
             num_my_ants: 0,
             num_enemy_ants: 0,
@@ -60,13 +60,13 @@ pub fn read_initial(layout: &mut Layout, state: &mut State) {
     }
 }
 
-pub fn read_turn(layout: &Layout, state: &mut State) {
+pub fn read_turn(layout: &Layout, states: &mut Vec<CellState>) {
     for i in 0..layout.cells.len() {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
         let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-        let cell = &mut state.cells[i];
+        let cell = &mut states[i];
         cell.resources = parse_input!(inputs[0], i32); // the current amount of eggs/crystals on this cell
         cell.num_my_ants = parse_input!(inputs[1], i32); // the amount of your ants on this cell
         cell.num_enemy_ants = parse_input!(inputs[2], i32); // the amount of opponent ants on this cell

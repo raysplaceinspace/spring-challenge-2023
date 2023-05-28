@@ -18,16 +18,10 @@ pub struct CellLayout {
     pub neighbors: Vec<usize>,
 }
 
-#[derive(Clone)]
-pub struct State {
-    pub cells: Vec<CellState>,
-}
-impl State {
-    pub fn new() -> Self {
-        Self {
-            cells: Vec::new(),
-        }
-    }
+pub enum CellType {
+    Normal,
+    Egg,
+    Crystal,
 }
 
 #[derive(Clone)]
@@ -35,12 +29,6 @@ pub struct CellState {
     pub resources: i32,
     pub num_my_ants: i32,
     pub num_enemy_ants: i32,
-}
-
-pub enum CellType {
-    Normal,
-    Egg,
-    Crystal,
 }
 
 #[allow(dead_code)]

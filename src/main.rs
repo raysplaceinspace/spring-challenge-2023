@@ -4,26 +4,17 @@ mod model;
 
 use model::*;
 
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
 fn main() {
     let mut layout = Layout::new();
-    let mut state = State::new();
-    interface::read_initial(&mut layout, &mut state);
+    let mut states = Vec::new();
+    interface::read_initial(&mut layout, &mut states);
 
     // game loop
     loop {
-        interface::read_turn(&layout, &mut state);
+        interface::read_turn(&layout, &mut states);
 
-        let actions = agent::act(&layout, &state);
+        let actions = agent::act(&layout, &states);
 
-        // Write an action using println!("message...");
-        // To debug: eprintln!("Debug message...");
-
-
-        // WAIT | LINE <sourceIdx> <targetIdx> <strength> | BEACON <cellIdx> <strength> | MESSAGE <text>
         if actions.is_empty() {
             println!("{}", interface::format_action(&Action::Wait));
         } else {
