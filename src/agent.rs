@@ -37,11 +37,8 @@ impl Agent {
             if let Some(closest) =
                 unharvested.iter()
                 .filter_map(|&target| {
-                    if let Some((distance, source)) = sources.iter().map(|&source| (self.paths.distance_between(source, target),source)).min() {
-                        Some(HarvestBranch { distance, source, target })
-                    } else {
-                        None
-                    }
+                    let (distance, source) = sources.iter().map(|&source| (self.paths.distance_between(source, target),source)).min()?;
+                    Some(HarvestBranch { distance, source, target })
                 })
                 .min_by_key(|branch| (branch.distance, branch.target)) {
 
@@ -85,7 +82,7 @@ fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests:
 }
 
 struct HarvestBranch {
-    distance: i32,
-    source: usize,
-    target: usize,
+    pub distance: i32,
+    pub source: usize,
+    pub target: usize,
 }
