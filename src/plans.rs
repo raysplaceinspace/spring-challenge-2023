@@ -4,11 +4,11 @@ use super::inputs::*;
 use super::view::*;
 
 #[derive(Clone)]
-pub struct PlanStep {
+pub struct Milestone {
     pub cell: usize,
 }
 
-pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) -> Vec<Action> {
+pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Vec<Action> {
     let mut actions = Vec::new();
 
     let my_base = view.layout.bases[player][0];
@@ -57,7 +57,7 @@ pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) 
     actions
 }
 
-fn calculate_harvest_sequence(player: usize, plan: &[PlanStep], view: &View, state: &State) -> Vec<usize> {
+fn calculate_harvest_sequence(player: usize, plan: &[Milestone], view: &View, state: &State) -> Vec<usize> {
     let prioritized: HashSet<usize> = plan.iter().map(|s| s.cell).collect();
 
     let mut sequence: Vec<usize> = (0..view.layout.cells.len()).filter(|i| state.resources[*i] > 0 && !prioritized.contains(i)).collect();

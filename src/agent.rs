@@ -13,7 +13,7 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
 
     for cell in 0..view.layout.cells.len() {
         if state.resources[cell] <= 0 { continue }
-        let plan = vec![PlanStep { cell }];
+        let plan = vec![Milestone { cell }];
         let candidate = evaluate(plan, view, state);
         eprintln!("candidate {} score: {}", cell, candidate.score);
 
@@ -31,13 +31,13 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
     actions
 }
 
-fn evaluate(plan: Vec<PlanStep>, view: &View, state: &State) -> Candidate {
+fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Candidate {
     const NUM_TICKS: u32 = 100;
     let score = evaluation::rollout(&plan, NUM_TICKS, view, state);
     Candidate { plan, score }
 }
 
 struct Candidate {
-    pub plan: Vec<PlanStep>,
+    pub plan: Vec<Milestone>,
     pub score: i32,
 }
