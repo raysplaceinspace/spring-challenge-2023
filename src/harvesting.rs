@@ -4,42 +4,57 @@ use super::model::*;
 use super::view::*;
 
 pub fn harvest(view: &View, num_ants: &AntsPerCell, available_resources: &ResourcesPerCell, harvested: &mut HarvestedPerPlayer) {
-    let mut max_flow_per_player = Vec::new();
     for player in 0..NUM_PLAYERS {
-        let mut max_flow = Vec::new();
-        max_flow.resize(view.layout.cells.len(), 0);
+        let harvest_map = HarvestMap::generate(player, view, num_ants);
 
-        for &base in view.layout.bases[player].iter() {
-            let flows_to_base = calculate_flows_to_base(base, player, view, num_ants);
-            for i in 0..view.layout.cells.len() {
-                max_flow[i] = max_flow[i].max(flows_to_base[i]);
+        for cell in 0..view.layout.cells.len() {
+            let harvest = harvest_map.calculate_harvest_at(cell, available_resources, view);
+            if harvest > 0 {
+                eprintln!(
+                    "{} harvested {} crystals from {}",
+                    if player == 0 { "We" } else { "Enemy" },
+                    harvest, cell);
+
+                harvested[player] += harvest;
             }
         }
+    }
+}
 
-        max_flow_per_player.push(max_flow);
+pub struct HarvestMap {
+    max_flow: Box<[i32]>,
+}
+impl HarvestMap {
+    pub fn generate(player: usize, view: &View, num_ants: &AntsPerCell) -> Self {
+        Self {
+            max_flow: calculate_max_flow_for_player(player, view, num_ants),
+        }
     }
 
-    for cell in 0..view.layout.cells.len() {
-        if view.layout.cells[cell].content != Some(Content::Crystals) { continue }
+    pub fn calculate_harvest_at(&self, cell: usize, available_resources: &ResourcesPerCell, view: &View) -> i32 {
+        if view.layout.cells[cell].content != Some(Content::Crystals) { return 0 }
 
         let available_resources = available_resources[cell];
-        if available_resources <= 0 { continue }
+        if available_resources <= 0 { return 0 }
 
-        let flow = [
-            max_flow_per_player[0][cell],
-            max_flow_per_player[1][cell],
-        ];
-        let max_flow: i32 = flow[0] + flow[1];
-        if max_flow <= 0 { continue }
-
-        let harvestable = available_resources.min(max_flow);
-        let ratio = if harvestable < max_flow { harvestable as f32 / max_flow as f32 } else { 1.0 };
-        let harvested0 = (flow[0] as f32 * ratio).round() as i32;
-        let harvested1 = harvestable - harvested0;
-
-        harvested[0] += harvested0;
-        harvested[1] += harvested1;
+        let demand = self.max_flow[cell];
+        let harvest = demand.min(available_resources);
+        harvest
     }
+}
+
+fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCell) -> Box<[i32]> {
+    let mut max_flow = Vec::new();
+    max_flow.resize(view.layout.cells.len(), 0);
+
+    for &base in view.layout.bases[player].iter() {
+        let flows_to_base = calculate_flows_to_base(base, player, view, num_ants);
+        for i in 0..view.layout.cells.len() {
+            max_flow[i] = max_flow[i].max(flows_to_base[i]);
+        }
+    }
+
+    max_flow.into_boxed_slice()
 }
 
 fn calculate_flows_to_base(base: usize, player: usize, view: &View, num_ants: &AntsPerCell) -> Vec<i32> {
