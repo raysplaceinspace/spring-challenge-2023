@@ -1,12 +1,7 @@
 pub const NUM_PLAYERS: usize = 2;
-
+pub const ME: usize = 0;
 #[allow(dead_code)]
-#[derive(Clone,Copy,PartialEq,Eq,Hash)]
-#[repr(usize)]
-pub enum Player {
-    Me = 0,
-    Enemy = 1,
-}
+pub const ENEMY: usize = 1;
 
 pub struct Layout {
     pub cells: Box<[CellLayout]>,

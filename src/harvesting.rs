@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use super::model::*;
 use super::view::*;
 
-pub fn harvest(view: &View, num_ants: &AntsPerCell, available_resources: &ResourcesPerCell, harvested: &mut HarvestedPerPlayer) {
+pub fn harvest(view: &View, num_ants: &AntsPerCell, available_resources: &ResourcesPerCell) -> HarvestedPerPlayer {
+    let mut harvested = [0; NUM_PLAYERS];
     for player in 0..NUM_PLAYERS {
         let harvest_map = HarvestMap::generate(player, view, num_ants);
 
@@ -19,6 +20,7 @@ pub fn harvest(view: &View, num_ants: &AntsPerCell, available_resources: &Resour
             }
         }
     }
+    harvested
 }
 
 pub struct HarvestMap {

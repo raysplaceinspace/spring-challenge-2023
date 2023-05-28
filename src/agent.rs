@@ -7,8 +7,8 @@ use super::view::*;
 pub fn act(view: &View, state: &State) -> Vec<Action> {
     let mut actions = Vec::new();
 
-    let my_base = view.layout.bases[Player::Me as usize][0];
-    let total_ants: i32 = state.num_ants_per_cell[Player::Me as usize].iter().cloned().sum();
+    let my_base = view.layout.bases[ME][0];
+    let total_ants: i32 = state.num_ants_per_cell[ME].iter().cloned().sum();
     let initial_crystals = view.initial_crystals;
     let remaining_crystals: i32 =
         view.layout.cells.iter().enumerate()

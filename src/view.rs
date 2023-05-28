@@ -1,6 +1,3 @@
-use super::interface::TurnInput;
-
-use super::harvesting;
 use super::model::*;
 use super::paths::*;
 
@@ -31,22 +28,10 @@ pub struct State {
     pub harvested: HarvestedPerPlayer,
 }
 impl State {
-    pub fn new(input: TurnInput) -> Self {
+    pub fn new(num_ants: AntsPerCell, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
         Self {
-            num_ants_per_cell: input.num_ants_per_cell,
-            resources_per_cell: input.resources_per_cell,
-            harvested: [0; NUM_PLAYERS],
-        }
-    }
-
-    pub fn forward(&self, input: TurnInput, view: &View) -> Self {
-        let mut harvested = self.harvested.clone();
-        let available_resources = &self.resources_per_cell; // Look at previous tick to determine available resources
-        harvesting::harvest(view, &input.num_ants_per_cell, available_resources, &mut harvested);
-
-        Self {
-            num_ants_per_cell: input.num_ants_per_cell,
-            resources_per_cell: input.resources_per_cell,
+            num_ants_per_cell: num_ants,
+            resources_per_cell: resources,
             harvested,
         }
     }
