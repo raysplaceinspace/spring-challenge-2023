@@ -44,8 +44,10 @@ pub fn actions_to_assignments<'a>(player: usize, view: &View, num_ants: &AntsPer
     }
 
     let total_ants: i32 = num_ants[player].iter().sum();
-    for beacon in beacons.iter_mut() {
-        *beacon = *beacon * total_ants / total_beacons;
+    if total_beacons > 0 {
+        for beacon in beacons.iter_mut() {
+            *beacon = *beacon * total_ants / total_beacons;
+        }
     }
     beacons.into_boxed_slice()
 }
