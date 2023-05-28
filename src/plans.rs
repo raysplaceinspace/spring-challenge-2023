@@ -14,19 +14,18 @@ pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) 
     let my_base = view.layout.bases[player][0];
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
 
-    let mut sources = HashSet::new();
-    sources.insert(my_base);
+    let mut beacons = HashSet::new();
+    beacons.insert(my_base);
 
     let mut num_harvests = 0;
     let mut total_distance = 0;
-    let mut branches = Vec::new();
 
     let sequence = calculate_harvest_sequence(player, plan, view, state);
     for target in sequence {
         let initial_collection_rate = calculate_collection_rate(total_ants, total_distance, num_harvests);
 
         if let Some((distance, source)) =
-            sources.iter()
+            beacons.iter()
             .map(|&source| (view.paths.distance_between(source, target),source))
             .min() {
 
@@ -34,15 +33,12 @@ pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) 
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
             if new_collection_rate >= initial_collection_rate {
-                sources.insert(target);
+                for cell in view.paths.calculate_path(source, target, &view.layout) {
+                    beacons.insert(cell);
+                }
 
                 total_distance += distance;
                 num_harvests += 1;
-
-                branches.push(HarvestBranch {
-                    source,
-                    target,
-                });
 
             } else {
                 // Best harvest not worth it, so none others will be either
@@ -55,12 +51,8 @@ pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) 
         }
     }
 
-    for branch in branches {
-        actions.push(Action::Line {
-            source: branch.source,
-            target: branch.target,
-            strength: 1,
-        });
+    for beacon in beacons {
+        actions.push(Action::Beacon { index: beacon, strength: 1 });
     }
 
     actions
@@ -88,9 +80,4 @@ fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests:
     if total_distance <= 0 { return 0 }
     let per_cell = total_ants / total_distance; // intentional integer division since ants can't be split
     num_harvests * per_cell
-}
-
-struct HarvestBranch {
-    pub source: usize,
-    pub target: usize,
 }
