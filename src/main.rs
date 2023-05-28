@@ -13,7 +13,7 @@ fn main() {
 
     let mut agent = Agent::new(layout);
     loop {
-        interface::read_turn(agent.layout(), &mut states);
+        interface::read_turn(&mut states);
 
         let actions = agent.act(&states);
 

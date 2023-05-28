@@ -14,10 +14,10 @@ pub fn read_initial(layout: &mut Layout, states: &mut Vec<CellState>) {
         io::stdin().read_line(&mut input_line).unwrap();
         let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-        let cell_type = match parse_input!(inputs[0], i32) {
-            0 => CellType::Normal,
-            1 => CellType::Egg,
-            2 => CellType::Crystal,
+        let contents = match parse_input!(inputs[0], i32) {
+            0 => None,
+            1 => Some(Content::Eggs),
+            2 => Some(Content::Crystals),
             wrong => panic!("Invalid cell type: {}", wrong),
         }; // 0 for empty, 1 for eggs, 2 for crystal
 
@@ -32,8 +32,9 @@ pub fn read_initial(layout: &mut Layout, states: &mut Vec<CellState>) {
         }
 
         layout.cells.push(CellLayout {
-            cell_type,
+            content: contents,
             neighbors,
+            initial_resources,
         });
 
         states.push(CellState {
@@ -60,16 +61,15 @@ pub fn read_initial(layout: &mut Layout, states: &mut Vec<CellState>) {
     }
 }
 
-pub fn read_turn(layout: &Layout, states: &mut Vec<CellState>) {
-    for i in 0..layout.cells.len() {
+pub fn read_turn(states: &mut Vec<CellState>) {
+    for state in states.iter_mut() {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
         let inputs = input_line.split(" ").collect::<Vec<_>>();
 
-        let cell = &mut states[i];
-        cell.resources = parse_input!(inputs[0], i32); // the current amount of eggs/crystals on this cell
-        cell.num_my_ants = parse_input!(inputs[1], i32); // the amount of your ants on this cell
-        cell.num_enemy_ants = parse_input!(inputs[2], i32); // the amount of opponent ants on this cell
+        state.resources = parse_input!(inputs[0], i32); // the current amount of eggs/crystals on this cell
+        state.num_my_ants = parse_input!(inputs[1], i32); // the amount of your ants on this cell
+        state.num_enemy_ants = parse_input!(inputs[2], i32); // the amount of opponent ants on this cell
     }
 }
 

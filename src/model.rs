@@ -14,14 +14,15 @@ impl Layout {
 }
 
 pub struct CellLayout {
-    pub cell_type: CellType,
+    pub content: Option<Content>,
     pub neighbors: Vec<usize>,
+    pub initial_resources: i32,
 }
 
-pub enum CellType {
-    Normal,
-    Egg,
-    Crystal,
+#[derive(Copy,Clone,PartialEq,Eq,Hash)]
+pub enum Content {
+    Eggs,
+    Crystals,
 }
 
 #[derive(Clone)]
