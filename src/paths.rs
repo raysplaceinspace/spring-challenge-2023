@@ -1,5 +1,5 @@
 use std::collections::{HashMap, VecDeque};
-use super::model::*;
+use super::inputs::*;
 
 pub struct PathMap {
     sources: Box<[DistanceMap]>,
@@ -14,6 +14,27 @@ impl PathMap {
 
     pub fn distance_between(&self, source: usize, sink: usize) -> i32 {
         self.sources[source].distance_to(sink)
+    }
+
+    pub fn step_towards(&self, source: usize, sink: usize, layout: &Layout) -> Option<usize> {
+        let distances_to_sink = &self.sources[sink].distances; // The distance map is symmetrical, so can use the sink as a source
+        let best = layout.cells[source].neighbors.iter().min_by_key(|n| distances_to_sink[**n]).cloned();
+        best
+    }
+
+    pub fn calculate_path<'a>(&'a self, source: usize, sink: usize, layout: &'a Layout) -> impl Iterator<Item=usize> + 'a {
+        let mut next = Some(source);
+        std::iter::from_fn(move || {
+            let output = next;
+            if let Some(current) = next {
+                if current == sink {
+                    next = None;
+                } else {
+                    next = self.step_towards(current, sink, layout);
+                }
+            }
+            output
+        })
     }
 }
 

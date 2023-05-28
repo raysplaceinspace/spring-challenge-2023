@@ -1,5 +1,5 @@
 use std::io;
-use super::model::*;
+use super::inputs::*;
 
 pub struct TurnInput {
     pub num_ants_per_cell: [Box<[i32]>; NUM_PLAYERS],

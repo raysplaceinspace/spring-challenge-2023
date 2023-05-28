@@ -1,4 +1,4 @@
-use super::model::*;
+use super::inputs::*;
 use super::paths::*;
 
 /// A Layout plus some pre-calculated values derived from the Layout
@@ -17,22 +17,41 @@ impl View {
     }
 }
 
-pub type AntsPerCell = [Box<[i32]>; NUM_PLAYERS];
+pub type AntsPerCell = Box<[i32]>;
+pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
 pub type ResourcesPerCell = Box<[i32]>;
 pub type HarvestedPerPlayer = [i32; NUM_PLAYERS];
 
 #[derive(Clone)]
 pub struct State {
-    pub num_ants_per_cell: AntsPerCell,
-    pub resources_per_cell: ResourcesPerCell,
-    pub harvested: HarvestedPerPlayer,
+    pub num_ants: AntsPerCellPerPlayer,
+    pub resources: ResourcesPerCell,
+    pub crystals: HarvestedPerPlayer,
 }
 impl State {
-    pub fn new(num_ants: AntsPerCell, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
+    pub fn new(num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
         Self {
-            num_ants_per_cell: num_ants,
-            resources_per_cell: resources,
-            harvested,
+            num_ants,
+            resources,
+            crystals: harvested,
         }
     }
+}
+
+pub fn remaining_crystals(cell: usize, resources: &ResourcesPerCell, view: &View) -> Option<i32> {
+    if view.layout.cells[cell].content == Some(Content::Crystals) {
+        Some(resources[cell])
+    } else {
+        None
+    }
+}
+
+pub fn find_winner(harvested: &HarvestedPerPlayer, view: &View) -> Option<usize> {
+    let threshold = view.initial_crystals / 2;
+    for player in 0..NUM_PLAYERS {
+        if harvested[player] > threshold {
+            return Some(player);
+        }
+    }
+    None
 }

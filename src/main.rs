@@ -1,12 +1,16 @@
 mod agent;
 mod interface;
 mod harvesting;
-mod model;
+mod inputs;
+mod movement;
 mod paths;
+mod policies;
+mod simulator;
 mod view;
 
-use model::*;
-use view::{State,View,HarvestedPerPlayer};
+use harvesting::HarvestMap;
+use inputs::*;
+use view::*;
 
 use interface::TurnInput;
 
@@ -23,15 +27,13 @@ fn main() {
         let state = match previous_state {
             None => State::new(num_ants_per_cell, resources_per_cell, HarvestedPerPlayer::default()),
             Some(previous) => {
-                let available_resources = &previous.resources_per_cell; // Look at previous tick to determine available resources
-                let mut harvested = harvesting::harvest(&view, &num_ants_per_cell, available_resources);
-                for (i,harvested) in harvested.iter_mut().enumerate() {
-                    *harvested += previous.harvested[i];
-                }
+                let available_resources = &previous.resources; // Look at previous tick to determine available resources
+                let mut harvested = previous.crystals.clone();
+                harvest(&view, &num_ants_per_cell, available_resources, &mut harvested);
                 State::new(num_ants_per_cell, resources_per_cell, harvested)
             },
         };
-        eprintln!("Harvested: me={}, enemy={}", state.harvested[0], state.harvested[1]);
+        eprintln!("Harvested: me={}, enemy={}", state.crystals[0], state.crystals[1]);
 
         // Calculate actions
         let actions = agent::act(&view, &state);
@@ -50,5 +52,25 @@ fn main() {
         }
 
         previous_state = Some(state);
+    }
+}
+
+fn harvest(view: &View, num_ants: &AntsPerCellPerPlayer, available_resources: &ResourcesPerCell, harvested: &mut HarvestedPerPlayer) {
+    for player in 0..NUM_PLAYERS {
+        let harvest_map = HarvestMap::generate(player, view, num_ants);
+
+        for cell in 0..view.layout.cells.len() {
+            if let Some(remaining_crystals) = view::remaining_crystals(cell, available_resources, view) {
+                let harvest = harvest_map.calculate_harvest_at(cell, remaining_crystals);
+                if harvest > 0 {
+                    eprintln!(
+                        "{} harvested {} crystals from {}",
+                        if player == 0 { "We" } else { "Enemy" },
+                        harvest, cell);
+
+                    harvested[player] += harvest;
+                }
+            }
+        }
     }
 }

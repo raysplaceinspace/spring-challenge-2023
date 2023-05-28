@@ -1,51 +1,26 @@
 use std::collections::VecDeque;
-
-use super::model::*;
 use super::view::*;
-
-pub fn harvest(view: &View, num_ants: &AntsPerCell, available_resources: &ResourcesPerCell) -> HarvestedPerPlayer {
-    let mut harvested = [0; NUM_PLAYERS];
-    for player in 0..NUM_PLAYERS {
-        let harvest_map = HarvestMap::generate(player, view, num_ants);
-
-        for cell in 0..view.layout.cells.len() {
-            let harvest = harvest_map.calculate_harvest_at(cell, available_resources, view);
-            if harvest > 0 {
-                eprintln!(
-                    "{} harvested {} crystals from {}",
-                    if player == 0 { "We" } else { "Enemy" },
-                    harvest, cell);
-
-                harvested[player] += harvest;
-            }
-        }
-    }
-    harvested
-}
 
 pub struct HarvestMap {
     max_flow: Box<[i32]>,
 }
 impl HarvestMap {
-    pub fn generate(player: usize, view: &View, num_ants: &AntsPerCell) -> Self {
+    pub fn generate(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Self {
         Self {
             max_flow: calculate_max_flow_for_player(player, view, num_ants),
         }
     }
 
-    pub fn calculate_harvest_at(&self, cell: usize, available_resources: &ResourcesPerCell, view: &View) -> i32 {
-        if view.layout.cells[cell].content != Some(Content::Crystals) { return 0 }
-
-        let available_resources = available_resources[cell];
-        if available_resources <= 0 { return 0 }
+    pub fn calculate_harvest_at(&self, cell: usize, available: i32) -> i32 {
+        if available <= 0 { return 0 }
 
         let demand = self.max_flow[cell];
-        let harvest = demand.min(available_resources);
+        let harvest = demand.min(available);
         harvest
     }
 }
 
-fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCell) -> Box<[i32]> {
+fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Box<[i32]> {
     let mut max_flow = Vec::new();
     max_flow.resize(view.layout.cells.len(), 0);
 
@@ -59,7 +34,7 @@ fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerC
     max_flow.into_boxed_slice()
 }
 
-fn calculate_flows_to_base(base: usize, player: usize, view: &View, num_ants: &AntsPerCell) -> Vec<i32> {
+fn calculate_flows_to_base(base: usize, player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Vec<i32> {
     let mut flows = Vec::new();
     flows.resize(view.layout.cells.len(), 0);
 
