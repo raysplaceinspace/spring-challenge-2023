@@ -1,4 +1,5 @@
 mod agent;
+mod evaluation;
 mod interface;
 mod harvesting;
 mod inputs;

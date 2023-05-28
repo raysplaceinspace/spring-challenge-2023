@@ -50,6 +50,10 @@ pub fn actions_to_assignments<'a>(player: usize, view: &View, num_ants: &AntsPer
     beacons.into_boxed_slice()
 }
 
+pub fn keep_assignments(player: usize, num_ants: &AntsPerCellPerPlayer) -> Assignments {
+    num_ants[player].clone()
+}
+
 pub fn move_ants_for_player(assignments: &Assignments, view: &View, num_ants: &mut AntsPerCell) {
     let num_cells = view.layout.cells.len();
 

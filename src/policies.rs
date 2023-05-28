@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::fmt::Display;
 
 use super::inputs::*;
 use super::view::*;
@@ -12,6 +11,12 @@ impl Plan {
     pub fn new() -> Self {
         Self {
             priorities: Vec::new(),
+        }
+    }
+
+    pub fn singular(target: usize) -> Self {
+        Self {
+            priorities: vec![target],
         }
     }
 }
@@ -39,7 +44,7 @@ pub fn enact_plan(player: usize, plan: &Plan, view: &View, state: &State) -> Vec
             .min() {
 
             let new_collection_rate = calculate_collection_rate(total_ants, total_distance + distance, num_harvests + 1);
-            eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
+            // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
             if new_collection_rate >= initial_collection_rate {
                 sources.insert(target);
@@ -48,7 +53,6 @@ pub fn enact_plan(player: usize, plan: &Plan, view: &View, state: &State) -> Vec
                 num_harvests += 1;
 
                 branches.push(HarvestBranch {
-                    distance,
                     source,
                     target,
                 });
@@ -93,33 +97,7 @@ fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests:
     num_harvests * per_cell
 }
 
-#[derive(Clone,Copy,PartialEq,PartialOrd)]
-struct HarvestRate(f32);
-impl HarvestRate {
-    pub fn new(rate: f32) -> Self {
-        Self(rate)
-    }
-}
-impl Eq for HarvestRate {
-}
-impl Ord for HarvestRate {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
-    }
-}
-impl Display for HarvestRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:.1}", self.0)
-    }
-}
-
-struct HarvestCandidate {
-    pub branch: HarvestBranch,
-    pub rate: HarvestRate,
-}
-
 struct HarvestBranch {
-    pub distance: i32,
     pub source: usize,
     pub target: usize,
 }

@@ -1,7 +1,7 @@
 use super::harvesting::HarvestMap;
 use super::inputs::*;
-use super::movement::{self,Assignments,AssignmentsPerPlayer};
-use super::view::{self,*};
+use super::movement::{self,AssignmentsPerPlayer};
+use super::view::*;
 
 pub fn forward(assignments: &AssignmentsPerPlayer, view: &View, state: &mut State) {
     apply_movement(assignments, view, state);

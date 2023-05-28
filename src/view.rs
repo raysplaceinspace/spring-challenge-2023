@@ -46,10 +46,10 @@ pub fn remaining_crystals(cell: usize, resources: &ResourcesPerCell, view: &View
     }
 }
 
-pub fn find_winner(harvested: &HarvestedPerPlayer, view: &View) -> Option<usize> {
+pub fn find_winner(crystals: &HarvestedPerPlayer, view: &View) -> Option<usize> {
     let threshold = view.initial_crystals / 2;
     for player in 0..NUM_PLAYERS {
-        if harvested[player] > threshold {
+        if crystals[player] > threshold {
             return Some(player);
         }
     }
