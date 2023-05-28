@@ -5,7 +5,7 @@ mod harvesting;
 mod inputs;
 mod movement;
 mod paths;
-mod policies;
+mod plans;
 mod simulator;
 mod view;
 

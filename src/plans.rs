@@ -4,24 +4,11 @@ use super::inputs::*;
 use super::view::*;
 
 #[derive(Clone)]
-pub struct Plan {
-    pub priorities: Vec<usize>, // Cell indices
-}
-impl Plan {
-    pub fn new() -> Self {
-        Self {
-            priorities: Vec::new(),
-        }
-    }
-
-    pub fn singular(target: usize) -> Self {
-        Self {
-            priorities: vec![target],
-        }
-    }
+pub struct PlanStep {
+    pub cell: usize,
 }
 
-pub fn enact_plan(player: usize, plan: &Plan, view: &View, state: &State) -> Vec<Action> {
+pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) -> Vec<Action> {
     let mut actions = Vec::new();
 
     let my_base = view.layout.bases[player][0];
@@ -79,14 +66,20 @@ pub fn enact_plan(player: usize, plan: &Plan, view: &View, state: &State) -> Vec
     actions
 }
 
-fn calculate_harvest_sequence(player: usize, plan: &Plan, view: &View, state: &State) -> Vec<usize> {
-    let prioritized: HashSet<usize> = plan.priorities.iter().cloned().collect();
+fn calculate_harvest_sequence(player: usize, plan: &[PlanStep], view: &View, state: &State) -> Vec<usize> {
+    let prioritized: HashSet<usize> = plan.iter().map(|s| s.cell).collect();
 
     let mut sequence: Vec<usize> = (0..view.layout.cells.len()).filter(|i| state.resources[*i] > 0 && !prioritized.contains(i)).collect();
     let base = view.layout.bases[player][0];
     sequence.sort_by_key(|&cell| view.paths.distance_between(base, cell));
 
-    sequence.splice(0..0, plan.priorities.iter().cloned());
+    sequence.splice(0..0, plan.iter().filter_map(|s| {
+        if state.resources[s.cell] > 0 {
+            Some(s.cell)
+        } else {
+            None
+        }
+    }));
 
     sequence
 }

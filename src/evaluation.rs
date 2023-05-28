@@ -1,13 +1,13 @@
-use super::policies::{self,*};
+use super::plans::{self,*};
 use super::inputs::*;
 use super::movement;
 use super::simulator;
 use super::view::{self,*};
 
-pub fn rollout(plan: &Plan, num_ticks: u32, view: &View, state: &State) -> i32 {
+pub fn rollout(plan: &Vec<PlanStep>, num_ticks: u32, view: &View, state: &State) -> i32 {
     let mut state = state.clone();
     for _ in 0..num_ticks {
-        let actions = policies::enact_plan(ME, plan, view, &state);
+        let actions = plans::enact_plan(ME, plan, view, &state);
 
         let assignments = [
             movement::actions_to_assignments(ME, view, &state.num_ants, actions.iter()),
