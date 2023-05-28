@@ -24,8 +24,8 @@ pub fn read_initial(layout: &mut Layout, states: &mut Vec<CellState>) {
         let initial_resources = parse_input!(inputs[1], i32); // the initial amount of eggs/crystals on this cell
 
         let mut neighbors = Vec::new();
-        for _ in 0..6 {
-            let neighbor = parse_input!(inputs[2], i32); // the index of the neighbouring cell for each direction
+        for i in 0..6 {
+            let neighbor = parse_input!(inputs[2+i], i32); // the index of the neighbouring cell for each direction
             if neighbor >= 0 {
                 neighbors.push(neighbor as usize);
             }

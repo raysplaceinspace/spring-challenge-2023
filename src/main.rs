@@ -1,7 +1,9 @@
 mod agent;
 mod interface;
 mod model;
+mod paths;
 
+use agent::Agent;
 use model::*;
 
 fn main() {
@@ -9,11 +11,11 @@ fn main() {
     let mut states = Vec::new();
     interface::read_initial(&mut layout, &mut states);
 
-    // game loop
+    let mut agent = Agent::new(layout);
     loop {
-        interface::read_turn(&layout, &mut states);
+        interface::read_turn(agent.layout(), &mut states);
 
-        let actions = agent::act(&layout, &states);
+        let actions = agent.act(&states);
 
         if actions.is_empty() {
             println!("{}", interface::format_action(&Action::Wait));
