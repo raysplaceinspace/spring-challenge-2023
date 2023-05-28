@@ -46,8 +46,7 @@ pub fn enact_plan(player: usize, plan: &[PlanStep], view: &View, state: &State) 
             }
 
         } else {
-            // No sources available - can't harvest
-            break;
+            panic!("no sources available for harvest");
         }
     }
 
