@@ -1,91 +1,76 @@
 use std::collections::HashSet;
 use std::fmt::Display;
 
-use super::paths::PathMap;
 use super::model::*;
+use super::view::*;
 
-pub struct Agent {
-    layout: Layout,
-    initial_crystals: i32,
-    paths: PathMap,
-}
-impl Agent {
-    pub fn new(layout: Layout) -> Self {
-        Self {
-            paths: PathMap::generate(&layout),
-            initial_crystals: layout.cells.iter().filter(|cell| cell.content == Some(Content::Crystals)).map(|cell| cell.initial_resources).sum(),
-            layout,
-        }
-    }
+pub fn act(view: &View, state: &State) -> Vec<Action> {
+    let mut actions = Vec::new();
 
-    pub fn act(&mut self, states: &Vec<CellState>) -> Vec<Action> {
-        let mut actions = Vec::new();
+    let my_base = view.layout.bases[Player::Me as usize][0];
+    let total_ants: i32 = state.num_ants_per_cell[Player::Me as usize].iter().cloned().sum();
+    let initial_crystals = view.initial_crystals;
+    let remaining_crystals: i32 =
+        view.layout.cells.iter().enumerate()
+        .filter(|(_,cell)| cell.content == Some(Content::Crystals))
+        .map(|(i,_)| state.resources_per_cell[i])
+        .sum();
 
-        let my_base = self.layout.my_bases[0];
-        let total_ants: i32 = states.iter().map(|state| state.num_my_ants).sum();
-        let initial_crystals = self.initial_crystals;
-        let remaining_crystals: i32 =
-            self.layout.cells.iter().enumerate()
-            .filter(|(_,cell)| cell.content == Some(Content::Crystals))
-            .map(|(i,_)| states[i].resources)
-            .sum();
+    let mut sources = HashSet::new();
+    sources.insert(my_base);
 
-        let mut sources = HashSet::new();
-        sources.insert(my_base);
+    let mut harvests = HarvestCounters::new();
+    let mut total_distance = 0;
+    let mut branches = Vec::new();
 
-        let mut harvests = HarvestCounters::new();
-        let mut total_distance = 0;
-        let mut branches = Vec::new();
+    let mut unharvested: HashSet<usize> = (0..view.layout.cells.len()).filter(|i| state.resources_per_cell[*i] > 0).collect();
+    while !unharvested.is_empty() {
+        let initial_collection_rate = calculate_collection_rate(total_ants, total_distance, initial_crystals, remaining_crystals, &harvests);
 
-        let mut unharvested: HashSet<usize> = (0..self.layout.cells.len()).filter(|i| states[*i].resources > 0).collect();
-        while !unharvested.is_empty() {
-            let initial_collection_rate = calculate_collection_rate(total_ants, total_distance, initial_crystals, remaining_crystals, &harvests);
+        if let Some(best) =
+            unharvested.iter()
+            .filter_map(|&target| {
+                let content = view.layout.cells[target].content?;
+                let (distance, source) = sources.iter().map(|&source| (view.paths.distance_between(source, target),source)).min()?;
+                Some(HarvestBranch { distance, source, target, content })
+            })
+            .map(|branch| {
+                let harvests = harvests.add(&branch.content);
+                let new_collection_rate = calculate_collection_rate(total_ants, total_distance + branch.distance, initial_crystals, remaining_crystals, &harvests);
+                HarvestCandidate { branch, rate: new_collection_rate }
+            })
+            .max_by_key(|candidate| (candidate.rate, candidate.branch.target)) {
 
-            if let Some(best) =
-                unharvested.iter()
-                .filter_map(|&target| {
-                    let content = self.layout.cells[target].content?;
-                    let (distance, source) = sources.iter().map(|&source| (self.paths.distance_between(source, target),source)).min()?;
-                    Some(HarvestBranch { distance, source, target, content })
-                })
-                .map(|branch| {
-                    let harvests = harvests.add(&branch.content);
-                    let new_collection_rate = calculate_collection_rate(total_ants, total_distance + branch.distance, initial_crystals, remaining_crystals, &harvests);
-                    HarvestCandidate { branch, rate: new_collection_rate }
-                })
-                .max_by_key(|candidate| (candidate.rate, candidate.branch.target)) {
+            eprintln!("considered harvesting <{}> (distance {}): {} -> {}", best.branch.target, best.branch.distance, initial_collection_rate, best.rate);
+            if best.rate >= initial_collection_rate {
+                unharvested.remove(&best.branch.target);
+                sources.insert(best.branch.target);
 
-                eprintln!("considered harvesting <{}> (distance {}): {} -> {}", best.branch.target, best.branch.distance, initial_collection_rate, best.rate);
-                if best.rate >= initial_collection_rate {
-                    unharvested.remove(&best.branch.target);
-                    sources.insert(best.branch.target);
+                total_distance += best.branch.distance;
+                harvests = harvests.add(&best.branch.content);
 
-                    total_distance += best.branch.distance;
-                    harvests = harvests.add(&best.branch.content);
-
-                    branches.push(best.branch);
-
-                } else {
-                    // Best harvest not worth it, so none others will be either
-                    break;
-                }
+                branches.push(best.branch);
 
             } else {
-                // No more harvests possible
-                break
+                // Best harvest not worth it, so none others will be either
+                break;
             }
-        }
 
-        for branch in branches {
-            actions.push(Action::Line {
-                source: branch.source,
-                target: branch.target,
-                strength: 1,
-            });
+        } else {
+            // No more harvests possible
+            break
         }
-
-        actions
     }
+
+    for branch in branches {
+        actions.push(Action::Line {
+            source: branch.source,
+            target: branch.target,
+            strength: 1,
+        });
+    }
+
+    actions
 }
 
 fn calculate_collection_rate(total_ants: i32, total_distance: i32, initial_crystals: i32, remaining_crystals: i32, harvests: &HarvestCounters) -> HarvestRate {

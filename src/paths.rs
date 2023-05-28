@@ -30,7 +30,7 @@ impl DistanceMap {
 
         while let Some(cell) = queue.pop_front() {
             let neighbor_distance = lookup[&cell] + 1;
-            for &neighbor in &layout.cells[cell].neighbors {
+            for &neighbor in layout.cells[cell].neighbors.iter() {
                 if let Some(distance) = lookup.get_mut(&neighbor) {
                     if neighbor_distance < *distance {
                         *distance = neighbor_distance;

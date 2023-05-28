@@ -1,21 +1,21 @@
-pub struct Layout {
-    pub cells: Vec<CellLayout>,
-    pub my_bases: Vec<usize>,
-    pub enemy_bases: Vec<usize>,
+pub const NUM_PLAYERS: usize = 2;
+
+#[allow(dead_code)]
+#[derive(Clone,Copy,PartialEq,Eq,Hash)]
+#[repr(usize)]
+pub enum Player {
+    Me = 0,
+    Enemy = 1,
 }
-impl Layout {
-    pub fn new() -> Self {
-        Self {
-            cells: Vec::new(),
-            my_bases: Vec::new(),
-            enemy_bases: Vec::new(),
-        }
-    }
+
+pub struct Layout {
+    pub cells: Box<[CellLayout]>,
+    pub bases: [Box<[usize]>; NUM_PLAYERS],
 }
 
 pub struct CellLayout {
     pub content: Option<Content>,
-    pub neighbors: Vec<usize>,
+    pub neighbors: Box<[usize]>,
     pub initial_resources: i32,
 }
 
@@ -23,13 +23,6 @@ pub struct CellLayout {
 pub enum Content {
     Eggs,
     Crystals,
-}
-
-#[derive(Clone)]
-pub struct CellState {
-    pub resources: i32,
-    pub num_my_ants: i32,
-    pub num_enemy_ants: i32,
 }
 
 #[allow(dead_code)]
