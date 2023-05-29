@@ -4,13 +4,14 @@ use super::movement;
 use super::simulator;
 use super::view::{self,*};
 
+const NUM_TICKS: u32 = 100;
 const DISCOUNT_RATE: f32 = 1.07;
 
-pub fn rollout(plan: &Vec<Milestone>, num_ticks: u32, view: &View, state: &State) -> f32 {
+pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
-    for age in 0..num_ticks {
+    for age in 0..NUM_TICKS {
         let actions = plans::enact_plan(ME, plan, view, &state);
 
         let assignments = [

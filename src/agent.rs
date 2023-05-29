@@ -34,8 +34,7 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
 }
 
 fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Candidate {
-    const NUM_TICKS: u32 = 100;
-    let score = evaluation::rollout(&plan, NUM_TICKS, view, state);
+    let score = evaluation::rollout(&plan, view, state);
     Candidate { plan, score }
 }
 
