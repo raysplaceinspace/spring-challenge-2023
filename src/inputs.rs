@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub const NUM_PLAYERS: usize = 2;
 pub const ME: usize = 0;
 #[allow(dead_code)]
@@ -18,6 +20,14 @@ pub struct CellLayout {
 pub enum Content {
     Eggs,
     Crystals,
+}
+impl Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Content::Eggs => write!(f, "eggs"),
+            Content::Crystals => write!(f, "crystals"),
+        }
+    }
 }
 
 #[allow(dead_code)]

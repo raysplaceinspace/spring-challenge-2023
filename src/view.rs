@@ -24,13 +24,15 @@ pub type HarvestedPerPlayer = [i32; NUM_PLAYERS];
 
 #[derive(Clone)]
 pub struct State {
+    pub tick: u32,
     pub num_ants: AntsPerCellPerPlayer,
     pub resources: ResourcesPerCell,
     pub crystals: HarvestedPerPlayer,
 }
 impl State {
-    pub fn new(num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
+    pub fn new(tick: u32, num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
         Self {
+            tick,
             num_ants,
             resources,
             crystals: harvested,

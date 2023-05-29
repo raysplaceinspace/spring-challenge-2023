@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashSet;
 
 use super::inputs::*;
@@ -18,26 +19,24 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     beacons.insert(my_base);
 
     let mut num_harvests = 0;
-    let mut total_distance = 0;
 
     let sequence = calculate_harvest_sequence(player, plan, view, state);
     for target in sequence {
-        let initial_collection_rate = calculate_collection_rate(total_ants, total_distance, num_harvests);
+        let initial_distance = beacons.len() as i32;
+        let initial_collection_rate = calculate_collection_rate(total_ants, initial_distance, num_harvests);
 
         if let Some((distance, source)) =
             beacons.iter()
             .map(|&source| (view.paths.distance_between(source, target),source))
             .min() {
 
-            let new_collection_rate = calculate_collection_rate(total_ants, total_distance + distance, num_harvests + 1);
+            let new_collection_rate = calculate_collection_rate(total_ants, initial_distance + distance, num_harvests + 1);
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
-            if new_collection_rate >= initial_collection_rate {
+            if new_collection_rate > initial_collection_rate {
                 for cell in view.paths.calculate_path(source, target, &view.layout) {
                     beacons.insert(cell);
                 }
-
-                total_distance += distance;
                 num_harvests += 1;
 
             } else {
