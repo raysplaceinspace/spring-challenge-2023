@@ -5,10 +5,11 @@ use super::inputs::*;
 use super::view::*;
 use super::evaluation;
 use super::mutations::Mutator;
+use super::opponents;
 use super::plans::{self,*};
 
 const SEARCH_MS: u128 = 50;
-const CLOSE_ENOUGH: f32 = 0.0001;
+const CLOSE_ENOUGH: f32 = 0.01;
 
 pub struct Agent {
     previous_plan: Option<Vec<Milestone>>,
@@ -50,6 +51,10 @@ impl Agent {
         eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
         eprintln!("{}", best);
         self.previous_plan = Some(best.plan.clone());
+
+        if let Some(countermove) = opponents::predict_countermove(ENEMY, view, &state) {
+            eprintln!("Predicted enemy countermove: {}", countermove.target);
+        }
 
         let actions = plans::enact_plan(ME, &best.plan, view, state);
 

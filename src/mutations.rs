@@ -25,19 +25,19 @@ impl Mutator {
             } else {
                 let selector: f32 = rng.gen();
                 if selector < 0.5 {
-                    if rng.gen::<f32>() < 0.9 {
+                    if rng.gen::<f32>() < 0.75 {
                         self.insert_milestone(&mut plan, rng)
                     } else {
                         self.remove_milestone(&mut plan, rng)
                     }
                 } else if selector < 0.75 {
-                    if rng.gen::<f32>() < 0.9 {
+                    if rng.gen::<f32>() < 0.75 {
                         self.extend_milestone(&mut plan, rng)
                     } else {
                         self.reduce_milestone(&mut plan, rng)
                     }
                 } else {
-                    if rng.gen::<f32>() < 0.9 {
+                    if rng.gen::<f32>() < 0.75 {
                         self.increase_milestone(&mut plan, rng)
                     } else {
                         self.decrease_milestone(&mut plan, rng)

@@ -1,6 +1,7 @@
 use super::plans::{self,*};
 use super::inputs::*;
 use super::movement;
+use super::opponents;
 use super::simulator;
 use super::view::{self,*};
 
@@ -14,7 +15,7 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     for age in 0..NUM_TICKS {
         let actions = [
             plans::enact_plan(ME, plan, view, &state),
-            Vec::new(), // no plan for enemy
+            opponents::enact_countermoves(ENEMY, view, &state),
         ];
 
         let assignments = [

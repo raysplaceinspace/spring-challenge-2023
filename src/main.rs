@@ -5,6 +5,7 @@ mod harvesting;
 mod inputs;
 mod mutations;
 mod movement;
+mod opponents;
 mod paths;
 mod plans;
 mod simulator;
