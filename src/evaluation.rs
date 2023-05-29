@@ -5,7 +5,7 @@ use super::simulator;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DISCOUNT_RATE: f32 = 1.02;
+const DISCOUNT_RATE: f32 = 1.07;
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     let mut payoff = 0.0;
