@@ -1,7 +1,6 @@
 use core::panic;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::VecDeque;
 use std::fmt::Display;
 
 use super::paths::PathMap;
@@ -10,37 +9,71 @@ use super::view::*;
 
 #[derive(Clone)]
 pub struct Milestone {
-    pub cell: usize,
+    pub cells: Vec<usize>,
+    pub num_cells_to_leave: i8,
+}
+impl Milestone {
+    pub fn new(cells: Vec<usize>, num_cells_to_leave: i8) -> Self {
+        Self { cells, num_cells_to_leave }
+    }
+
+    pub fn is_complete(&self, state: &State) -> bool {
+        let num_cells_remaining = self.cells.iter().filter(|cell| state.resources[**cell] > 0).count();
+        self.num_cells_to_leave >= num_cells_remaining as i8
+    }
+
+    pub fn is_smaller(me: &[Milestone], other: &[Milestone]) -> bool {
+        if me.len() > other.len() { return false }
+        if me.len() < other.len() { return true }
+
+        let my_cells: usize = me.iter().map(|milestone| milestone.cells.len()).sum();
+        let other_cells: usize = other.iter().map(|milestone| milestone.cells.len()).sum();
+        my_cells < other_cells
+    }
 }
 impl Display for Milestone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.cell.fmt(f)
+        write!(f, "(")?;
+        let mut is_first = true;
+        for cell in self.cells.iter() {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", cell)?;
+        }
+        write!(f, "/{})", self.num_cells_to_leave)?;
+        Ok(())
     }
 }
 
 struct HarvestMesh {
     unharvested: HashMap<usize,i32>, // unharvested cell -> distance to closest beacon
-    priorities: VecDeque<usize>, // cells, highest priority first
     beacons: HashSet<usize>,
 }
 impl HarvestMesh {
-    pub fn generate(plan: &[Milestone], view: &View, state: &State) -> Self {
-        let mut unharvested: HashMap<usize,i32> =
-            (0..view.layout.cells.len())
+    pub fn new(cells: impl Iterator<Item=usize>, state: &State) -> Self {
+        let unharvested: HashMap<usize,i32> =
+            cells
             .filter(|i| state.resources[*i] > 0)
             .map(|cell| (cell, i32::MAX))
             .collect();
-        let mut priorities = VecDeque::new();
-        for milestone in plan.iter() {
-            if unharvested.remove(&milestone.cell).is_some() {
-                priorities.push_back(milestone.cell);
-            }
-        }
 
         Self {
             unharvested,
-            priorities,
             beacons: HashSet::new(),
+        }
+    }
+
+    pub fn generate(plan: &[Milestone], view: &View, state: &State) -> Self {
+        if let Some(milestone) = plan.iter().find(|milestone| !milestone.is_complete(state)) {
+            // Consider only the cells in the first incomplete milestone
+            Self::new(milestone.cells.iter().cloned(), state)
+
+        } else {
+            // Consider all cells
+            Self::new(0..view.layout.cells.len(), state)
         }
     }
 
@@ -48,11 +81,6 @@ impl HarvestMesh {
     pub fn num_beacons(&self) -> usize { self.beacons.len() }
 
     pub fn take_next(&mut self) -> Option<usize> {
-        if let Some(cell) = self.priorities.pop_front() {
-            // Take next priority cell
-            return Some(cell);
-        }
-
         if let Some((cell, _)) = self.unharvested.iter().min_by_key(|(cell,distance)| (**distance,**cell)) {
             // Take closest unharvested cell
             let cell = *cell;

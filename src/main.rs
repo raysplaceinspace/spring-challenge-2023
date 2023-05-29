@@ -3,12 +3,14 @@ mod evaluation;
 mod interface;
 mod harvesting;
 mod inputs;
+mod mutations;
 mod movement;
 mod paths;
 mod plans;
 mod simulator;
 mod view;
 
+use agent::Agent;
 use harvesting::HarvestMap;
 use inputs::*;
 use view::*;
@@ -19,6 +21,7 @@ fn main() {
     let layout = interface::read_initial();
     let view = View::new(layout);
 
+    let mut agent = Agent::new();
     let mut previous_state: Option<State> = None;
     let mut tick = 0;
     loop {
@@ -38,7 +41,7 @@ fn main() {
         eprintln!("Harvested: me={}, enemy={}", state.crystals[0], state.crystals[1]);
 
         // Calculate actions
-        let actions = agent::act(&view, &state);
+        let actions = agent.act(&view, &state);
 
         // Emit actions
         if actions.is_empty() {

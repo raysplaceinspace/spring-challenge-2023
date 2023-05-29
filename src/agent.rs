@@ -1,46 +1,71 @@
+use rand::prelude::*;
 use std::fmt::Display;
 use std::time::Instant;
 use super::inputs::*;
 use super::view::*;
 use super::evaluation;
+use super::mutations::Mutator;
 use super::plans::{self,*};
 
-pub fn act(view: &View, state: &State) -> Vec<Action> {
-    let start = Instant::now();
+const SEARCH_MS: u128 = 50;
+const CLOSE_ENOUGH: f32 = 0.0001;
 
-    let mut best = evaluate(Vec::new(), view, state);
-    let mut num_evaluated = 1;
-    let mut num_improvements = 0;
-
-    for cell in 0..view.layout.cells.len() {
-        if state.resources[cell] <= 0 { continue }
-        let plan = vec![Milestone { cell }];
-        let candidate = evaluate(plan, view, state);
-
-        num_evaluated += 1;
-
-        if candidate.score > best.score {
-            best = candidate;
-            num_improvements += 1;
+pub struct Agent {
+    previous_plan: Option<Vec<Milestone>>,
+    rng: StdRng,
+}
+impl Agent {
+    pub fn new() -> Self {
+        Self {
+            previous_plan: None,
+            rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
     }
 
-    eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
-    eprintln!("{}", best);
+    pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
+        let start = Instant::now();
 
-    let actions = plans::enact_plan(ME, &best.plan, view, state);
+        let mut best = Candidate::evaluate(self.previous_plan.take().unwrap_or_else(|| Vec::new()), view, state);
+        let mut num_evaluated = 1;
+        let mut num_improvements = 0;
 
-    actions
-}
+        if let Some(mutator) = Mutator::new(view, state) {
+            while start.elapsed().as_millis() < SEARCH_MS {
+                let plan = match mutator.mutate(&best.plan, &mut self.rng) {
+                    Some(plan) => plan,
+                    None => continue,
+                };
+                let candidate = Candidate::evaluate(plan, view, state);
+                num_evaluated += 1;
 
-fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Candidate {
-    let score = evaluation::rollout(&plan, view, state);
-    Candidate { plan, score }
+                if candidate.score > best.score
+                    || (candidate.score - best.score).abs() < CLOSE_ENOUGH && Milestone::is_smaller(&candidate.plan, &best.plan) {
+
+                    best = candidate;
+                    num_improvements += 1;
+                }
+            }
+        }
+
+        eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
+        eprintln!("{}", best);
+        self.previous_plan = Some(best.plan.clone());
+
+        let actions = plans::enact_plan(ME, &best.plan, view, state);
+
+        actions
+    }
 }
 
 struct Candidate {
     pub plan: Vec<Milestone>,
     pub score: f32,
+}
+impl Candidate {
+    pub(self) fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Self {
+        let score = evaluation::rollout(&plan, view, state);
+        Self { plan, score }
+    }
 }
 impl Display for Candidate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
