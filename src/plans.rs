@@ -25,21 +25,17 @@ struct HarvestMesh {
 }
 impl HarvestMesh {
     pub fn generate(plan: &[Milestone], view: &View, state: &State) -> Self {
-        let unharvested =
+        let mut unharvested: HashMap<usize,i32> =
             (0..view.layout.cells.len())
             .filter(|i| state.resources[*i] > 0)
             .map(|cell| (cell, i32::MAX))
             .collect();
-        let priorities =
-            plan.iter()
-            .filter_map(|m| {
-                if state.resources[m.cell] > 0 {
-                    Some(m.cell)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let mut priorities = VecDeque::new();
+        for milestone in plan.iter() {
+            if unharvested.remove(&milestone.cell).is_some() {
+                priorities.push_back(milestone.cell);
+            }
+        }
 
         Self {
             unharvested,
@@ -57,7 +53,7 @@ impl HarvestMesh {
             return Some(cell);
         }
 
-        if let Some((cell, _)) = self.unharvested.iter().min_by_key(|(_,distance)| *distance) {
+        if let Some((cell, _)) = self.unharvested.iter().min_by_key(|(cell,distance)| (**distance,**cell)) {
             // Take closest unharvested cell
             let cell = *cell;
             self.unharvested.remove(&cell);
@@ -84,7 +80,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
 
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
 
-    let mut num_harvests = 0;
+    let mut targets = Vec::new();
     let mut mesh = HarvestMesh::generate(plan, view, state);
     for &base in view.layout.bases[player].iter() {
         mesh.add_beacon(base, &view.paths);
@@ -92,21 +88,22 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
 
     while let Some(target) = mesh.take_next() {
         let initial_distance = mesh.num_beacons() as i32;
-        let initial_collection_rate = calculate_collection_rate(total_ants, initial_distance, num_harvests);
+        let initial_harvests = targets.len() as i32;
+        let initial_collection_rate = calculate_collection_rate(total_ants, initial_distance, initial_harvests);
 
         if let Some((distance, source)) =
             mesh.beacons()
             .map(|source| (view.paths.distance_between(source, target),source))
             .min() {
 
-            let new_collection_rate = calculate_collection_rate(total_ants, initial_distance + distance, num_harvests + 1);
+            let new_collection_rate = calculate_collection_rate(total_ants, initial_distance + distance, initial_harvests + 1);
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
             if new_collection_rate > initial_collection_rate {
                 for cell in view.paths.calculate_path(source, target, &view.layout) {
                     mesh.add_beacon(cell, &view.paths);
                 }
-                num_harvests += 1;
+                targets.push(target);
 
             } else {
                 // Best harvest not worth it, so none others will be either
@@ -122,7 +119,22 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         actions.push(Action::Beacon { index: beacon, strength: 1 });
     }
 
+    actions.push(Action::Message { text: format_harvest_msg(targets.as_slice()) });
+
     actions
+}
+
+fn format_harvest_msg(targets: &[usize]) -> String {
+    use std::fmt::Write;
+
+    let mut msg = String::new();
+    for &target in targets {
+        if !msg.is_empty() {
+            msg.push_str(" ");
+        }
+        write!(&mut msg, "{}", target).ok();
+    }
+    msg
 }
 
 fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {
