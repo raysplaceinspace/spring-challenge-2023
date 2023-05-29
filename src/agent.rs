@@ -8,7 +8,7 @@ use super::mutations::Mutator;
 use super::opponents;
 use super::plans::{self,*};
 
-const SEARCH_MS: u128 = 50;
+const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
 
 pub struct Agent {
@@ -27,6 +27,7 @@ impl Agent {
         let start = Instant::now();
 
         let mut best = Candidate::evaluate(self.previous_plan.take().unwrap_or_else(|| Vec::new()), view, state);
+
         let mut num_evaluated = 1;
         let mut num_improvements = 0;
 
@@ -39,9 +40,7 @@ impl Agent {
                 let candidate = Candidate::evaluate(plan, view, state);
                 num_evaluated += 1;
 
-                if candidate.score > best.score
-                    || (candidate.score - best.score).abs() < CLOSE_ENOUGH && Milestone::is_smaller(&candidate.plan, &best.plan) {
-
+                if candidate.is_improvement(&best) {
                     best = candidate;
                     num_improvements += 1;
                 }
@@ -62,6 +61,7 @@ impl Agent {
     }
 }
 
+#[derive(Clone)]
 struct Candidate {
     pub plan: Vec<Milestone>,
     pub score: f32,
@@ -70,6 +70,11 @@ impl Candidate {
     pub(self) fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Self {
         let score = evaluation::rollout(&plan, view, state);
         Self { plan, score }
+    }
+
+    pub fn is_improvement(&self, other: &Self) -> bool {
+        self.score > other.score
+            || (self.score - other.score).abs() < CLOSE_ENOUGH && Milestone::is_smaller(&self.plan, &other.plan)
     }
 }
 impl Display for Candidate {

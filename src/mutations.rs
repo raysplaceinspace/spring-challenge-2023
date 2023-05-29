@@ -24,24 +24,26 @@ impl Mutator {
                 self.insert_milestone(&mut plan, rng)
             } else {
                 let selector: f32 = rng.gen();
-                if selector < 0.5 {
-                    if rng.gen::<f32>() < 0.75 {
+                if selector < 0.25 {
+                    if rng.gen::<f32>() < 0.5 {
+                        self.extend_milestone(&mut plan, rng)
+                    } else {
+                        self.reduce_milestone(&mut plan, rng)
+                    }
+                } else if selector < 0.5 {
+                    if rng.gen::<f32>() < 0.5 {
                         self.insert_milestone(&mut plan, rng)
                     } else {
                         self.remove_milestone(&mut plan, rng)
                     }
                 } else if selector < 0.75 {
-                    if rng.gen::<f32>() < 0.75 {
-                        self.extend_milestone(&mut plan, rng)
-                    } else {
-                        self.reduce_milestone(&mut plan, rng)
-                    }
-                } else {
-                    if rng.gen::<f32>() < 0.75 {
+                    if rng.gen::<f32>() < 0.5 {
                         self.increase_milestone(&mut plan, rng)
                     } else {
                         self.decrease_milestone(&mut plan, rng)
                     }
+                } else {
+                    self.swap_milestone(&mut plan, rng)
                 }
             };
 
@@ -133,6 +135,15 @@ impl Mutator {
 
         let index = rng.gen_range(0..plan.len());
         plan.remove(index);
+
+        true
+    }
+
+    fn swap_milestone(&self, plan: &mut Vec<Milestone>, rng: &mut StdRng) -> bool {
+        if plan.len() < 2 { return false; }
+
+        let index = rng.gen_range(0 .. (plan.len() - 1));
+        plan.swap(index, index + 1);
 
         true
     }
