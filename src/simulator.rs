@@ -1,27 +1,12 @@
-use std::fmt::Display;
-
 use super::harvesting::HarvestMap;
 use super::inputs::*;
 use super::movement::{self,AssignmentsPerPlayer};
 use super::view::*;
 
-pub enum Event {
-    HarvestCompleted { tick: u32, cell: usize },
-}
-impl Display for Event {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Event::HarvestCompleted { tick, cell } => {
-                write!(f, "{}: completed {}", tick, cell)
-            },
-        }
-    }
-}
-
-pub fn forward(assignments: &AssignmentsPerPlayer, view: &View, state: &mut State, mut events: Option<&mut Vec<Event>>) {
+pub fn forward(assignments: &AssignmentsPerPlayer, view: &View, state: &mut State) {
     state.tick += 1;
     apply_movement(assignments, view, state);
-    apply_harvest(view, state, &mut events);
+    apply_harvest(view, state);
 }
 
 fn apply_movement(assignments: &AssignmentsPerPlayer, view: &View, state: &mut State) {
@@ -33,7 +18,7 @@ fn apply_movement(assignments: &AssignmentsPerPlayer, view: &View, state: &mut S
     }
 }
 
-fn apply_harvest(view: &View, state: &mut State, events: &mut Option<&mut Vec<Event>>) {
+fn apply_harvest(view: &View, state: &mut State) {
     let harvesting = [
         HarvestMap::generate(ME, view, &state.num_ants),
         HarvestMap::generate(ENEMY, view, &state.num_ants),
@@ -69,9 +54,6 @@ fn apply_harvest(view: &View, state: &mut State, events: &mut Option<&mut Vec<Ev
         let next = *available - reduction;
         if next < 0 {
             *available = 0;
-            if let Some(events) = events {
-                events.push(Event::HarvestCompleted { cell, tick: state.tick });
-            }
 
         } else {
             *available = next;

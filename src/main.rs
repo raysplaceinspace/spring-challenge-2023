@@ -27,7 +27,7 @@ fn main() {
 
         // Calculate new state
         let state = match previous_state {
-            None => State::new(tick, num_ants_per_cell, resources_per_cell, HarvestedPerPlayer::default()),
+            None => State::new(tick, num_ants_per_cell, resources_per_cell, CrystalsPerPlayer::default()),
             Some(previous) => {
                 let available_resources = &previous.resources; // Look at previous tick to determine available resources
                 let mut harvested = previous.crystals.clone();
@@ -58,7 +58,7 @@ fn main() {
     }
 }
 
-fn harvest(view: &View, num_ants: &AntsPerCellPerPlayer, available_resources: &ResourcesPerCell, harvested: &mut HarvestedPerPlayer) {
+fn harvest(view: &View, num_ants: &AntsPerCellPerPlayer, available_resources: &ResourcesPerCell, harvested: &mut CrystalsPerPlayer) {
     for player in 0..NUM_PLAYERS {
         let harvest_map = HarvestMap::generate(player, view, num_ants);
 

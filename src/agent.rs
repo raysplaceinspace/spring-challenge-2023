@@ -3,7 +3,6 @@ use super::inputs::*;
 use super::view::*;
 use super::evaluation;
 use super::plans::{self,*};
-use super::simulator::Event;
 
 pub fn act(view: &View, state: &State) -> Vec<Action> {
     let start = Instant::now();
@@ -15,17 +14,11 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
         if state.resources[cell] <= 0 { continue }
         let plan = vec![Milestone { cell }];
         let candidate = evaluate(plan, view, state);
-        eprintln!("candidate {} score: {}", cell, candidate.score);
-
-        if candidate.score == 0 {
-            for event in &candidate.events {
-                eprintln!("{}", event);
-            }
-        }
 
         num_evaluated += 1;
 
         if candidate.score > best.score {
+            eprintln!("candidate {}: {:.0} -> {:.0}", cell, best.score, candidate.score);
             best = candidate;
         }
     }
@@ -39,13 +32,11 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
 
 fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Candidate {
     const NUM_TICKS: u32 = 100;
-    let mut events = Vec::new();
-    let score = evaluation::rollout(&plan, NUM_TICKS, view, state, Some(&mut events));
-    Candidate { plan, score, events }
+    let score = evaluation::rollout(&plan, NUM_TICKS, view, state);
+    Candidate { plan, score }
 }
 
 struct Candidate {
     pub plan: Vec<Milestone>,
-    pub events: Vec<Event>,
-    pub score: i32,
+    pub score: f32,
 }

@@ -20,17 +20,17 @@ impl View {
 pub type AntsPerCell = Box<[i32]>;
 pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
 pub type ResourcesPerCell = Box<[i32]>;
-pub type HarvestedPerPlayer = [i32; NUM_PLAYERS];
+pub type CrystalsPerPlayer = [i32; NUM_PLAYERS];
 
 #[derive(Clone)]
 pub struct State {
     pub tick: u32,
     pub num_ants: AntsPerCellPerPlayer,
     pub resources: ResourcesPerCell,
-    pub crystals: HarvestedPerPlayer,
+    pub crystals: CrystalsPerPlayer,
 }
 impl State {
-    pub fn new(tick: u32, num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: HarvestedPerPlayer) -> Self {
+    pub fn new(tick: u32, num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: CrystalsPerPlayer) -> Self {
         Self {
             tick,
             num_ants,
@@ -48,7 +48,7 @@ pub fn remaining_crystals(cell: usize, resources: &ResourcesPerCell, view: &View
     }
 }
 
-pub fn find_winner(crystals: &HarvestedPerPlayer, view: &View) -> Option<usize> {
+pub fn find_winner(crystals: &CrystalsPerPlayer, view: &View) -> Option<usize> {
     let threshold = view.initial_crystals / 2;
     for player in 0..NUM_PLAYERS {
         if crystals[player] > threshold {
