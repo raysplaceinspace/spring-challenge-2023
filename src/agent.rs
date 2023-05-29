@@ -25,7 +25,8 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
         }
     }
 
-    eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations): {}", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated, best);
+    eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
+    eprintln!("{}", best);
 
     let actions = plans::enact_plan(ME, &best.plan, view, state);
 
@@ -44,7 +45,7 @@ struct Candidate {
 }
 impl Display for Candidate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "candidate (score={:.0}): ", self.score)?;
+        write!(f, "score={:.0}: ", self.score)?;
 
         let mut is_first = true;
         for milestone in self.plan.iter() {
