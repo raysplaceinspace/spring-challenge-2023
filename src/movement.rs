@@ -48,10 +48,14 @@ pub fn actions_to_assignments<'a>(player: usize, view: &View, num_ants: &AntsPer
         for beacon in beacons.iter_mut() {
             *beacon = *beacon * total_ants / total_beacons;
         }
+        beacons.into_boxed_slice()
+
+    } else {
+        keep_assignments(player, num_ants)
     }
-    beacons.into_boxed_slice()
 }
 
+#[allow(dead_code)]
 pub fn keep_assignments(player: usize, num_ants: &AntsPerCellPerPlayer) -> Assignments {
     num_ants[player].clone()
 }
