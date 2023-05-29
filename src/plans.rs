@@ -1,5 +1,6 @@
 use core::panic;
 use std::collections::HashSet;
+use std::fmt::Display;
 
 use super::inputs::*;
 use super::view::*;
@@ -7,6 +8,11 @@ use super::view::*;
 #[derive(Clone)]
 pub struct Milestone {
     pub cell: usize,
+}
+impl Display for Milestone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.cell.fmt(f)
+    }
 }
 
 pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Vec<Action> {

@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::time::Instant;
 use super::inputs::*;
 use super::view::*;
@@ -9,6 +10,7 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
 
     let mut best = evaluate(Vec::new(), view, state);
     let mut num_evaluated = 1;
+    let mut num_improvements = 0;
 
     for cell in 0..view.layout.cells.len() {
         if state.resources[cell] <= 0 { continue }
@@ -18,12 +20,12 @@ pub fn act(view: &View, state: &State) -> Vec<Action> {
         num_evaluated += 1;
 
         if candidate.score > best.score {
-            eprintln!("candidate {}: {:.0} -> {:.0}", cell, best.score, candidate.score);
             best = candidate;
+            num_improvements += 1;
         }
     }
 
-    eprintln!("{}: found best plan (score={}) in {:.0} ms ({} iterations)", state.tick, best.score, start.elapsed().as_millis(), num_evaluated);
+    eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations): {}", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated, best);
 
     let actions = plans::enact_plan(ME, &best.plan, view, state);
 
@@ -39,4 +41,20 @@ fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Candidate {
 struct Candidate {
     pub plan: Vec<Milestone>,
     pub score: f32,
+}
+impl Display for Candidate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "candidate (score={:.0}): ", self.score)?;
+
+        let mut is_first = true;
+        for milestone in self.plan.iter() {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", milestone)?;
+        }
+        Ok(())
+    }
 }
