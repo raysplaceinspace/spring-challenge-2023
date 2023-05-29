@@ -5,7 +5,7 @@ use super::simulator;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DISCOUNT_RATE: f32 = 1.07;
+const DISCOUNT_RATE: f32 = 1.02;
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     let mut payoff = 0.0;
@@ -26,7 +26,8 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
             payoff += evaluate_harvesting(player, state.crystals[player], initial_crystals[player], age);
         }
 
-        if let Some(_) = view::find_winner(&state.crystals, view) {
+        if let Some(winner) = view::find_winner(&state.crystals, view) {
+            payoff += evaluate_win(winner, age);
             break;
         }
     }
@@ -34,12 +35,24 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     payoff
 }
 
+fn discount(payoff: f32, age: u32) -> f32 {
+    payoff / DISCOUNT_RATE.powf(age as f32)
+}
+
 fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {
     let mined = num_crystals - previous_crystals;
-    let payoff = mined as f32 / DISCOUNT_RATE.powf(age as f32);
+    evaluate_player(player) * discount(mined as f32, age)
+}
+
+fn evaluate_win(winner: usize, age: u32) -> f32 {
+    const WINNER_PAYOFF: f32 = 100.0;
+    evaluate_player(winner) * discount(WINNER_PAYOFF, age)
+}
+
+fn evaluate_player(player: usize) -> f32 {
     if player == ME {
-        payoff
+        1.0
     } else {
-        -payoff
+        -1.0
     }
 }
