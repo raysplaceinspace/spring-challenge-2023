@@ -96,7 +96,7 @@ impl Mutator {
 
         let index = rng.gen_range(0..plan.len());
         let milestone = &mut plan[index];
-        if milestone.cells.is_empty() { return false }
+        if milestone.cells.len() < 2 { return false } // No point creating an empty milestone
 
         let index = rng.gen_range(0..milestone.cells.len());
         milestone.cells.swap_remove(index);
