@@ -6,7 +6,8 @@ use super::simulator;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DISCOUNT_RATE: f32 = 1.07;
+const DISCOUNT_RATE: f32 = 1.02;
+const WIN_PAYOFF: f32 = 10.0;
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     let mut payoff = 0.0;
@@ -49,7 +50,6 @@ fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32,
 }
 
 fn evaluate_win(player: usize, age: u32) -> f32 {
-    const WIN_PAYOFF: f32 = 100.0;
     evaluate_player(player) * discount(WIN_PAYOFF, age)
 }
 

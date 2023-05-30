@@ -74,7 +74,7 @@ impl Candidate {
 
     pub fn is_improvement(&self, other: &Self) -> bool {
         self.score > other.score
-            || (self.score - other.score).abs() < CLOSE_ENOUGH && Milestone::is_smaller(&self.plan, &other.plan)
+            || (self.score - other.score).abs() < CLOSE_ENOUGH && self.plan.len() < other.plan.len()
     }
 }
 impl Display for Candidate {
