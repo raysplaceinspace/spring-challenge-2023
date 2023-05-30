@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use super::view::*;
 use super::inputs::*;
 
@@ -42,81 +40,40 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Vec<Acti
     }
 }
 pub fn predict_countermove(player: usize, view: &View, state: &State) -> Option<Countermove> {
-    let flow_distance_from_base = calculate_flow_distance_from_base(player, &state.num_ants[player], &view.layout);
-    let busy_map = identify_busy_ants(&flow_distance_from_base, state, &view.layout);
-    let idle_ants = identify_idle_ants(&state.num_ants[player], &busy_map);
+    let idle_ants = find_idle_frontier(player, view, state);
     if idle_ants.is_empty() { return None } // All ants are busy - no need to move any ants. No action will just leave the ants where they are.
 
     find_shortest_countermove(player, &idle_ants, view, state)
 }
 
-fn calculate_flow_distance_from_base(player: usize, num_ants_per_cell: &AntsPerCell, layout: &Layout) -> Box<[i32]> {
-    let num_cells = num_ants_per_cell.len();
-    let mut flow_distance_from_base: Vec<i32> = Vec::new();
-    flow_distance_from_base.resize(num_cells, i32::MAX);
-
-    let mut queue = VecDeque::new();
-    for &base in layout.bases[player].iter() {
-        if num_ants_per_cell[base] <= 0 { continue }
-        flow_distance_from_base[base] = 0;
-        queue.push_back(base);
-    }
-
-    while let Some(source) = queue.pop_front() {
-        let source_distance = flow_distance_from_base[source];
-
-        let neighbor_distance = source_distance + 1;
-        for &neighbor in layout.cells[source].neighbors.iter() {
-            if num_ants_per_cell[neighbor] <= 0 { continue }
-            if flow_distance_from_base[neighbor] <= neighbor_distance { continue }
-
-            flow_distance_from_base[neighbor] = neighbor_distance;
-            queue.push_back(neighbor);
-        }
-    }
-
-    flow_distance_from_base.into_boxed_slice()
-}
-
-fn identify_busy_ants(flow_distance_from_base: &[i32], state: &State, layout: &Layout) -> Box<[bool]> {
-    let num_cells = flow_distance_from_base.len();
-    let mut busy = Vec::new();
-    busy.resize(num_cells, false);
-
+fn find_idle_frontier(player: usize, view: &View, state: &State) -> Vec<usize> {
+    let num_cells = view.layout.cells.len();
+    let base = view.layout.bases[player][0];
+    
+    let mut frontier = Vec::new();
     for cell in 0..num_cells {
-        if state.resources[cell] <= 0 { continue } // nothing to harvest here
-        if flow_distance_from_base[cell] == i32::MAX { continue } // not harvesting this cell
+        if state.num_ants[player][cell] <= 0 { continue } // we don't have any ants here
+        if state.resources[cell] > 0 { continue } // these ants are harvesting - we have an explanation of what they are doing
 
-        mark_return_path_as_busy(cell, &flow_distance_from_base, layout, &mut busy);
-    }
+        let my_distance = view.paths.distance_between(base, cell);
 
-    busy.into_boxed_slice()
-}
+        let mut is_frontier = true;
+        for &neighbor in view.layout.cells[cell].neighbors.iter() {
+            if state.num_ants[player][neighbor] <= 0 { continue } // neighbor is empty
 
-fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
-    busy[cell] = true;
+            let neighbor_distance = view.paths.distance_between(base, neighbor);
+            if neighbor_distance < my_distance { continue } // neighbor is closer to the base than me - if either one of us are the frontier, it is me
 
-    let remaining_distance = flow_distance_from_base[cell];
-    if remaining_distance <= 0 { return }
-    else if remaining_distance == i32::MAX { return } // there won't be a path back to base from here
+            is_frontier = false;
+            break;
+        }
 
-    // Flow back to base along the neighbors that are closer to the base
-    for &neighbour in layout.cells[cell].neighbors.iter() {
-        if flow_distance_from_base[neighbour] < remaining_distance {
-            mark_return_path_as_busy(neighbour, flow_distance_from_base, layout, busy);
+        if is_frontier {
+            frontier.push(cell);
         }
     }
-}
 
-fn identify_idle_ants(num_ants_per_cell: &AntsPerCell, busy_map: &[bool]) -> Vec<usize> {
-    let mut idle_ants = Vec::new();
-    let num_cells = num_ants_per_cell.len();
-    for cell in 0..num_cells {
-        if num_ants_per_cell[cell] > 0 && !busy_map[cell] {
-            idle_ants.push(cell);
-        }
-    }
-    idle_ants
+    frontier
 }
 
 fn find_shortest_countermove(player: usize, sources: &[usize], view: &View, state: &State) -> Option<Countermove> {
