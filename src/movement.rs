@@ -18,46 +18,28 @@ struct Candidate {
     pub distance: i32,
 }
 
-pub fn actions_to_assignments<'a>(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer, actions: impl Iterator<Item=&'a Action>) -> Assignments {
-    let num_cells = view.layout.cells.len();
-
-    let mut beacons: Vec<i32> = Vec::new();
-    beacons.resize(num_cells, 0);
-    let mut total_beacons = 0;
-
-    for action in actions {
-        match action {
-            Action::Beacon { index, strength } => {
-                beacons[*index] += *strength;
-                total_beacons += *strength;
-            },
-            Action::Line { source, target, strength } => {
-                for step in view.paths.calculate_path(*source, *target, &view.layout) {
-                    beacons[step] += *strength;
-                    total_beacons += *strength;
-                }
-            },
-
-            Action::Message { .. } => (),
-            Action::Wait => (),
-        }
-    }
-
-    let total_ants: i32 = num_ants[player].iter().sum();
+pub fn spread_ants_across_beacons<'a>(beacons: &mut [i32], player: usize, state: &State) {
+    let total_beacons: i32 = beacons.iter().cloned().sum();
+    let total_ants: i32 = state.num_ants[player].iter().sum();
     if total_beacons > 0 {
         for beacon in beacons.iter_mut() {
             *beacon = *beacon * total_ants / total_beacons;
         }
-        beacons.into_boxed_slice()
 
-    } else {
-        keep_assignments(player, num_ants)
     }
 }
 
-#[allow(dead_code)]
-pub fn keep_assignments(player: usize, num_ants: &AntsPerCellPerPlayer) -> Assignments {
-    num_ants[player].clone()
+pub fn assignments_to_actions(assignments: &[i32]) -> Vec<Action> {
+    let mut actions = Vec::new();
+    for (cell, &num_ants) in assignments.iter().enumerate() {
+        if num_ants > 0 {
+            actions.push(Action::Beacon {
+                index: cell,
+                strength: num_ants,
+            });
+        }
+    }
+    actions
 }
 
 pub fn move_ants_for_player(assignments: &Assignments, view: &View, num_ants: &mut AntsPerCell) {

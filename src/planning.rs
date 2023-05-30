@@ -2,7 +2,7 @@ use core::panic;
 use std::collections::HashSet;
 use std::fmt::Display;
 
-use super::inputs::*;
+use super::movement;
 use super::view::*;
 
 #[derive(Clone)]
@@ -24,9 +24,7 @@ impl Display for Milestone {
     }
 }
 
-pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> (Vec<Action>,PlanDetail) {
-    let mut actions = Vec::new();
-
+pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Commands {
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
 
     let mut targets = Vec::new();
@@ -62,20 +60,24 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         }
     }
 
+    let mut assignments: Vec<i32> = Vec::new();
+    assignments.resize(view.layout.cells.len(), 0);
     for beacon in beacons {
-        actions.push(Action::Beacon { index: beacon, strength: 1 });
+        assignments[beacon] = 1;
     }
+    movement::spread_ants_across_beacons(&mut assignments, player, state);
 
-    actions.push(Action::Message { text: format_harvest_msg(targets.as_slice()) });
-
-    let detail = PlanDetail { targets };
-    (actions, detail)
+    Commands {
+        assignments: assignments.into_boxed_slice(),
+        targets,
+    }
 }
 
-pub struct PlanDetail {
+pub struct Commands {
+    pub assignments: Box<[i32]>,
     pub targets: Vec<usize>,
 }
-impl Display for PlanDetail {
+impl Display for Commands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.targets.is_empty() {
             write!(f, "-")?;
@@ -92,24 +94,6 @@ impl Display for PlanDetail {
         }
         Ok(())
     }
-}
-
-fn format_harvest_msg(targets: &[usize]) -> String {
-    use std::fmt::Write;
-
-    let mut msg = String::new();
-    for &target in targets {
-        if !msg.is_empty() {
-            msg.push_str(" ");
-        }
-        write!(&mut msg, "{}", target).ok();
-    }
-
-    if msg.is_empty() {
-        msg.push_str("-");
-    }
-
-    msg
 }
 
 fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {

@@ -1,6 +1,5 @@
 use super::planning::{self,*};
 use super::inputs::*;
-use super::movement;
 use super::opponents;
 use super::simulation;
 use super::view::{self,*};
@@ -14,16 +13,12 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
 
     let mut state = state.clone();
     for age in 0..NUM_TICKS {
-        let (my_actions, _) = planning::enact_plan(ME, plan, view, &state);
+        let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plan, view, &state);
         let countermoves = opponents::enact_countermoves(ENEMY, view, &state);
-        let actions = [
-            my_actions,
-            countermoves,
-        ];
 
         let assignments = [
-            movement::actions_to_assignments(ME, view, &state.num_ants, actions[ME].iter()),
-            movement::actions_to_assignments(ENEMY, view, &state.num_ants, actions[ENEMY].iter()),
+            my_assignments,
+            countermoves,
         ];
 
         let initial_crystals = state.crystals.clone();

@@ -1,7 +1,9 @@
 use rand::prelude::*;
 use std::fmt::Display;
 use std::time::Instant;
+
 use super::inputs::*;
+use super::movement;
 use super::view::*;
 use super::evaluation;
 use super::opponents;
@@ -73,8 +75,10 @@ impl Agent {
             eprintln!("Predicted enemy countermove: {}", countermove.target);
         }
 
-        let (mut actions, detail) = planning::enact_plan(ME, &best.plan, view, state);
-        actions.push(Action::Message { text: format!("{}", detail) });
+        let commands = planning::enact_plan(ME, &best.plan, view, state);
+
+        let mut actions = movement::assignments_to_actions(&commands.assignments);
+        actions.push(Action::Message { text: format!("{}", commands) });
 
         self.previous_plan = Some(best.plan);
         actions
