@@ -18,23 +18,27 @@ struct Candidate {
     pub distance: i32,
 }
 
-pub fn spread_ants_across_beacons<'a>(beacons: &mut [i32], player: usize, state: &State) {
-    let total_beacons: i32 = beacons.iter().cloned().sum();
+pub fn spread_ants_across_beacons<'a>(beacons: impl ExactSizeIterator<Item=usize>, player: usize, state: &State) -> Assignments {
+    let num_cells = state.resources.len();
+
+    let total_beacons = beacons.len();
     let total_ants: i32 = state.num_ants[player].iter().sum();
-    if total_beacons > 0 {
-        let mut remaining_beacons = total_beacons;
-        let mut remaining_ants = total_ants;
-        for beacon in beacons.iter_mut() {
-            if remaining_ants <= 0 || remaining_beacons <= 0 { break }
 
-            let assign_to_this_beacon = *beacon * remaining_ants / remaining_beacons;
+    let mut assignments = Vec::new();
+    assignments.resize(num_cells, 0);
 
-            remaining_beacons -= *beacon;
-            remaining_ants -= assign_to_this_beacon;
+    let mut remaining_ants = total_ants;
+    for (index, cell) in beacons.enumerate() {
+        if remaining_ants <= 0 { break }
 
-            *beacon = assign_to_this_beacon;
-        }
+        let remaining_beacons = (total_beacons - index) as i32;
+        let assign_to_this_beacon = remaining_ants / remaining_beacons;
+
+        remaining_ants -= assign_to_this_beacon;
+        assignments[cell] = assign_to_this_beacon;
     }
+
+    assignments.into_boxed_slice()
 }
 
 pub fn assignments_to_actions(assignments: &[i32]) -> Vec<Action> {

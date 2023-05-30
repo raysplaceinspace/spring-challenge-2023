@@ -1,24 +1,40 @@
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::fmt::Display;
 
 use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
 
-pub struct Countermove {
-    pub target: usize,
-    pub distance: i32,
+pub struct Countermoves {
+    pub assignments: Assignments,
+    pub target: Option<usize>,
+}
+impl Display for Countermoves {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(target) = self.target {
+            target.fmt(f)
+        } else {
+            write!(f, "-")
+        }
+    }
 }
 
-pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Assignments {
-    let countermove = predict_countermove(player, view, state);
-
+pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
+    let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
+    let harvestable: Vec<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0).collect();
     let mut beacons = HashSet::new();
+    
+    // Always begin the calculation with ants on the bases so we have somewhere to extend from
+    for &base in view.layout.bases[player].iter() {
+        beacons.insert(base);
+    }
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
-    let busy = identify_busy_ants(player, view, state);
+    let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
+    let busy = identify_busy_ants(view, state, &flow_distance_from_base);
     for cell in 0..num_cells {
         if busy[cell] {
             beacons.insert(cell);
@@ -26,57 +42,47 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Assignme
     }
 
     // Extend to the countermove target
-    if let Some(countermove) = countermove {
+    let idle_ants = find_idle_frontier(player, view, state, &flow_distance_from_base, &busy);
+    let mut countermove = None;
+    if let Some(target) = find_shortest_countermove(player, &idle_ants, &harvestable, view, state) {
         // Find closest beacon to extend from
         let source = beacons.iter().cloned().min_by_key(|&beacon| {
-            view.paths.distance_between(beacon, countermove.target)
-        }).unwrap_or_else(|| view.closest_bases[player][countermove.target]);
+            view.paths.distance_between(beacon, target)
+        }).unwrap_or_else(|| view.closest_bases[player][target]);
 
-        for cell in view.paths.calculate_path(source, countermove.target, &view.layout) {
-            beacons.insert(cell);
+        if beacons.len() as i32 + view.paths.distance_between(source, target) <= total_ants { // If we can reach this target
+            for cell in view.paths.calculate_path(source, target, &view.layout) {
+                beacons.insert(cell);
+            }
+
+            countermove = Some(target);
         }
     }
 
-    let mut assignments = Vec::new();
-    assignments.resize(num_cells, 0);
-    movement::spread_ants_across_beacons(&mut assignments, player, state);
-    assignments.into_boxed_slice()
-}
-
-pub fn predict_countermove(player: usize, view: &View, state: &State) -> Option<Countermove> {
-    let idle_ants = find_idle_frontier(player, view, state);
-    if idle_ants.is_empty() { return None } // All ants are busy - no need to move any ants. No action will just leave the ants where they are.
-
-    let countermove = match find_shortest_countermove(player, &idle_ants, view, state) {
-        Some(countermove) => countermove,
-        None => return None,
-    };
-
-    let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
-    if countermove.distance > total_ants {
-        // Cannot execute this countermove - it is too far
-        return None;
+    Countermoves {
+        assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, state),
+        target: countermove,
     }
-
-    Some(countermove)
 }
 
-fn find_idle_frontier(player: usize, view: &View, state: &State) -> Vec<usize> {
+fn find_idle_frontier(player: usize, view: &View, state: &State, flow_distance_from_base: &[i32], busy: &[bool]) -> Vec<usize> {
     let num_cells = view.layout.cells.len();
     
     let mut frontier = Vec::new();
     for cell in 0..num_cells {
         if state.num_ants[player][cell] <= 0 { continue } // we don't have any ants here
-        if state.resources[cell] > 0 { continue } // these ants are harvesting - we have an explanation of what they are doing
+        if busy[cell] { continue } // these ants are part of a harvesting chain - we have an explanation of what they are doing and don't need to find one
 
-        let base = view.closest_bases[player][cell];
-        let my_distance = view.paths.distance_between(base, cell);
+        let my_distance = flow_distance_from_base[cell];
+        if my_distance == i32::MAX { continue } // disconnected from base - ignore these ants
 
         let mut is_frontier = true;
         for &neighbor in view.layout.cells[cell].neighbors.iter() {
             if state.num_ants[player][neighbor] <= 0 { continue } // neighbor is empty
 
-            let neighbor_distance = view.paths.distance_between(base, neighbor);
+            let neighbor_distance = flow_distance_from_base[cell];
+            if neighbor_distance == i32::MAX { continue } // disconnected from base - ignore these ants
+
             if neighbor_distance > my_distance {
                 // neighbor is further from the base than me - they are the frontier, if either of us are
                 is_frontier = false;
@@ -92,30 +98,34 @@ fn find_idle_frontier(player: usize, view: &View, state: &State) -> Vec<usize> {
     frontier
 }
 
-fn find_shortest_countermove(player: usize, sources: &[usize], view: &View, state: &State) -> Option<Countermove> {
-    // Where at the idle ants going? Find cells unoccupied unharvested cells closest to the idle ants.
-    let num_cells = view.layout.cells.len();
-    let target =
-        (0..num_cells)
-        .filter(|target| state.resources[*target] > 0 && state.num_ants[player][*target] == 0)
-        .filter_map(|target| {
-            let countermove = sources.iter().map(|source| {
-                let distance = view.paths.distance_between(*source, target);
-                Countermove {
+struct ExtensionPath {
+    pub target: usize,
+    pub distance: i32,
+}
+fn find_shortest_countermove(player: usize, sources: &[usize], targets: &[usize], view: &View, state: &State) -> Option<usize> {
+    if sources.is_empty() || targets.is_empty() { return None }
+
+    // Where are the idle ants going? Find cells unoccupied unharvested cells closest to the idle ants.
+    let countermove =
+        targets.iter()
+        .filter(|&&target| state.num_ants[player][target] == 0)
+        .filter_map(|&target| {
+            sources.iter().map(|source| {
+                ExtensionPath {
                     target,
-                    distance,
+                    distance: view.paths.distance_between(*source, target),
                 }
-            }).min_by_key(|c| c.distance);
-            countermove
+            }).min_by_key(|c| c.distance)
         })
         .min_by_key(|c| c.distance);
-    target
+    match countermove {
+        Some(countermove) => Some(countermove.target),
+        None => None,
+    }
 }
 
-fn identify_busy_ants(player: usize, view: &View, state: &State) -> Box<[bool]> {
+fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> Box<[bool]> {
     let num_cells = view.layout.cells.len();
-
-    let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
 
     let mut busy = Vec::new();
     busy.resize(num_cells, false);

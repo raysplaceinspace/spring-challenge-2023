@@ -72,19 +72,20 @@ impl Agent {
         eprintln!("{}", best);
 
         eprintln!(
-            "Endgame: tick={}, crystals=[{} vs {}]",
+            "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",
             best.endgame.tick,
             best.endgame.crystals[0], best.endgame.crystals[1],
+            best.endgame.num_ants[0], best.endgame.num_ants[1],
         );
 
-        if let Some(countermove) = opponents::predict_countermove(ENEMY, view, &state) {
-            eprintln!("Predicted enemy countermove: {}", countermove.target);
-        }
-
         let commands = planning::enact_plan(ME, &best.plan, view, state);
+        let countermoves = opponents::enact_countermoves(ENEMY, view, state);
 
         let mut actions = movement::assignments_to_actions(&commands.assignments);
-        actions.push(Action::Message { text: format!("{}", commands) });
+
+        let summary = format!("{} vs {}", commands, countermoves);
+        eprintln!("Next: {}", summary);
+        actions.push(Action::Message { text: summary });
 
         self.previous_plan = Some(best.plan);
         actions

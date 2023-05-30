@@ -60,15 +60,8 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         }
     }
 
-    let mut assignments: Vec<i32> = Vec::new();
-    assignments.resize(view.layout.cells.len(), 0);
-    for beacon in beacons {
-        assignments[beacon] = 1;
-    }
-    movement::spread_ants_across_beacons(&mut assignments, player, state);
-
     Commands {
-        assignments: assignments.into_boxed_slice(),
+        assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, state),
         targets,
     }
 }

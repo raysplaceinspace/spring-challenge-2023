@@ -1,6 +1,6 @@
 use super::planning::{self,*};
 use super::inputs::*;
-use super::opponents;
+use super::opponents::{self,Countermoves};
 use super::simulation;
 use super::view::{self,*};
 
@@ -12,6 +12,7 @@ const WIN_PAYOFF: f32 = 1.0;
 pub struct Endgame {
     pub tick: u32,
     pub crystals: CrystalsPerPlayer,
+    pub num_ants: [i32; NUM_PLAYERS],
 }
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
@@ -20,11 +21,11 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
     let mut state = state.clone();
     for age in 0..NUM_TICKS {
         let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plan, view, &state);
-        let countermoves = opponents::enact_countermoves(ENEMY, view, &state);
+        let Countermoves { assignments: enemy_assignments, .. } = opponents::enact_countermoves(ENEMY, view, &state);
 
         let assignments = [
             my_assignments,
-            countermoves,
+            enemy_assignments,
         ];
 
         let initial_crystals = state.crystals.clone();
@@ -43,6 +44,10 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
     let endgame = Endgame {
         tick: state.tick,
         crystals: state.crystals,
+        num_ants: [
+            state.num_ants[ME].iter().sum(),
+            state.num_ants[ENEMY].iter().sum(),
+        ],
     };
     (payoff, endgame)
 }
