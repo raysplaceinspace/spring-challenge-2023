@@ -30,7 +30,8 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
             payoff += evaluate_harvesting(player, state.crystals[player], initial_crystals[player], age);
         }
 
-        if let Some(_) = view::find_winner(&state.crystals, view) {
+        if let Some(winner) = view::find_winner(&state.crystals, view) {
+            payoff += evaluate_win(winner, age);
             break;
         }
     }
@@ -45,6 +46,11 @@ fn discount(payoff: f32, age: u32) -> f32 {
 fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {
     let mined = num_crystals - previous_crystals;
     evaluate_player(player) * discount(mined as f32, age)
+}
+
+fn evaluate_win(player: usize, age: u32) -> f32 {
+    const WIN_PAYOFF: f32 = 100.0;
+    evaluate_player(player) * discount(WIN_PAYOFF, age)
 }
 
 fn evaluate_player(player: usize) -> f32 {
