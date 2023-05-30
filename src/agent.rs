@@ -32,7 +32,14 @@ impl Agent {
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
         let start = Instant::now();
 
-        let mut best = Candidate::evaluate(self.previous_plan.take().unwrap_or_default(), view, state);
+        let initial_plan = match self.previous_plan.take() {
+            Some(mut plan) => {
+                plan.retain(|m| !m.is_complete(state));
+                plan
+            },
+            None => Vec::new(),
+        };
+        let mut best = Candidate::evaluate(initial_plan, view, state);
 
         let mut num_evaluated = 1;
         let mut num_improvements = 0;

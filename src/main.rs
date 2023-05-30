@@ -70,10 +70,12 @@ fn harvest(view: &View, num_ants: &AntsPerCellPerPlayer, available_resources: &R
             if let Some(remaining_crystals) = view::remaining_crystals(cell, available_resources, view) {
                 let harvest = harvest_map.calculate_harvest_at(cell, remaining_crystals);
                 if harvest > 0 {
+                    /*
                     eprintln!(
                         "{} harvested {} crystals from {}",
                         if player == 0 { "We" } else { "Enemy" },
                         harvest, cell);
+                    */
 
                     harvested[player] += harvest;
                 }
