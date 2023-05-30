@@ -1,26 +1,47 @@
 use super::inputs::*;
 use super::pathing::*;
 
+pub type AntsPerCell = Box<[i32]>;
+pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
+pub type ResourcesPerCell = Box<[i32]>;
+pub type CrystalsPerPlayer = [i32; NUM_PLAYERS];
+pub type ClosestBases = Box<[usize]>;
+pub type ClosestBasesPerPlayer = [ClosestBases; NUM_PLAYERS];
+
 /// A Layout plus some pre-calculated values derived from the Layout
 pub struct View {
     pub layout: Layout,
     pub initial_crystals: i32,
     pub paths: PathMap,
+
+    /// player -> cell -> closest base
+    pub closest_bases: ClosestBasesPerPlayer,
 }
 impl View {
     pub fn new(layout: Layout) -> Self {
+        let paths = PathMap::generate(&layout);
+        let initial_crystals = layout.cells.iter().filter(|cell| cell.content == Some(Content::Crystals)).map(|cell| cell.initial_resources).sum();
+        let closest_bases = [
+            Self::find_closest_bases(ME, &layout, &paths),
+            Self::find_closest_bases(ENEMY, &layout, &paths),
+        ];
         Self {
-            paths: PathMap::generate(&layout),
-            initial_crystals: layout.cells.iter().filter(|cell| cell.content == Some(Content::Crystals)).map(|cell| cell.initial_resources).sum(),
+            paths,
+            initial_crystals,
+            closest_bases,
             layout,
         }
     }
-}
 
-pub type AntsPerCell = Box<[i32]>;
-pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
-pub type ResourcesPerCell = Box<[i32]>;
-pub type CrystalsPerPlayer = [i32; NUM_PLAYERS];
+    fn find_closest_bases(player: usize, layout: &Layout, paths: &PathMap) -> ClosestBases {
+        let closest_bases: Vec<usize> = (0..layout.cells.len()).map(|target| {
+            layout.bases[player].iter().cloned().min_by_key(|&base| {
+                paths.distance_between(base, target)
+            }).expect("bases missing")
+        }).collect();
+        closest_bases.into_boxed_slice()
+    }
+}
 
 #[derive(Clone)]
 pub struct State {

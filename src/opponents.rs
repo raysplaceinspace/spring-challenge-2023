@@ -5,7 +5,6 @@ use super::view::*;
 use super::movement::{self,Assignments};
 
 pub struct Countermove {
-    pub source: usize,
     pub target: usize,
     pub distance: i32,
 }
@@ -39,11 +38,9 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Assignme
         }
     }
 
-    // Extend to new cells
-    // We have to find a new path to the countermove target (can't use countermove.source)
-    // because some of those ants may be idle and we have now removed those
+    // Extend to the countermove target
     if let Some(countermove) = countermove {
-        let source = best.map(|b| b.source).unwrap_or_else(|| view.layout.bases[player][0]);
+        let source = best.map(|b| b.source).unwrap_or_else(|| view.closest_bases[player][countermove.target]);
         for cell in view.paths.calculate_path(source, countermove.target, &view.layout) {
             beacons[cell] = 1;
         }
@@ -73,13 +70,13 @@ pub fn predict_countermove(player: usize, view: &View, state: &State) -> Option<
 
 fn find_idle_frontier(player: usize, view: &View, state: &State) -> Vec<usize> {
     let num_cells = view.layout.cells.len();
-    let base = view.layout.bases[player][0];
     
     let mut frontier = Vec::new();
     for cell in 0..num_cells {
         if state.num_ants[player][cell] <= 0 { continue } // we don't have any ants here
         if state.resources[cell] > 0 { continue } // these ants are harvesting - we have an explanation of what they are doing
 
+        let base = view.closest_bases[player][cell];
         let my_distance = view.paths.distance_between(base, cell);
 
         let mut is_frontier = true;
@@ -112,7 +109,6 @@ fn find_shortest_countermove(player: usize, sources: &[usize], view: &View, stat
             let countermove = sources.iter().map(|source| {
                 let distance = view.paths.distance_between(*source, target);
                 Countermove {
-                    source: *source,
                     target,
                     distance,
                 }
