@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use super::inputs::*;
@@ -9,45 +10,37 @@ pub struct Countermove {
     pub distance: i32,
 }
 
-struct ExtensionPath {
-    pub source: usize,
-    pub distance: i32,
-}
-
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Assignments {
     let countermove = predict_countermove(player, view, state);
 
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
-    let mut beacons = Vec::new();
-    beacons.resize(num_cells, 0);
+    let mut beacons = HashSet::new();
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let busy = identify_busy_ants(player, view, state);
-    let mut best: Option<ExtensionPath> = None;
     for cell in 0..num_cells {
         if busy[cell] {
-            beacons[cell] = 1;
-
-            if let Some(countermove) = &countermove {
-                let distance = view.paths.distance_between(cell, countermove.target);
-                if distance < best.as_ref().map(|b| b.distance).unwrap_or(std::i32::MAX) {
-                    best = Some(ExtensionPath { source: cell, distance });
-                }
-            }
+            beacons.insert(cell);
         }
     }
 
     // Extend to the countermove target
     if let Some(countermove) = countermove {
-        let source = best.map(|b| b.source).unwrap_or_else(|| view.closest_bases[player][countermove.target]);
+        // Find closest beacon to extend from
+        let source = beacons.iter().cloned().min_by_key(|&beacon| {
+            view.paths.distance_between(beacon, countermove.target)
+        }).unwrap_or_else(|| view.closest_bases[player][countermove.target]);
+
         for cell in view.paths.calculate_path(source, countermove.target, &view.layout) {
-            beacons[cell] = 1;
+            beacons.insert(cell);
         }
     }
 
-    movement::spread_ants_across_beacons(&mut beacons, player, state);
-    beacons.into_boxed_slice()
+    let mut assignments = Vec::new();
+    assignments.resize(num_cells, 0);
+    movement::spread_ants_across_beacons(&mut assignments, player, state);
+    assignments.into_boxed_slice()
 }
 
 pub fn predict_countermove(player: usize, view: &View, state: &State) -> Option<Countermove> {

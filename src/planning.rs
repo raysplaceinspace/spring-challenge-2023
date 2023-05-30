@@ -96,7 +96,7 @@ impl Display for Commands {
     }
 }
 
-fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {
+pub fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {
     if total_distance <= 0 { return 0 }
     let per_cell = total_ants / total_distance; // intentional integer division since ants can't be split
     num_harvests * per_cell
