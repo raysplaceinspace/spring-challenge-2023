@@ -22,8 +22,17 @@ pub fn spread_ants_across_beacons<'a>(beacons: &mut [i32], player: usize, state:
     let total_beacons: i32 = beacons.iter().cloned().sum();
     let total_ants: i32 = state.num_ants[player].iter().sum();
     if total_beacons > 0 {
+        let mut remaining_beacons = total_beacons;
+        let mut remaining_ants = total_ants;
         for beacon in beacons.iter_mut() {
-            *beacon = *beacon * total_ants / total_beacons;
+            if remaining_ants <= 0 || remaining_beacons <= 0 { break }
+
+            let assign_to_this_beacon = *beacon * remaining_ants / remaining_beacons;
+
+            remaining_beacons -= *beacon;
+            remaining_ants -= assign_to_this_beacon;
+
+            *beacon = assign_to_this_beacon;
         }
     }
 }

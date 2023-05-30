@@ -44,8 +44,13 @@ fn apply_harvest(view: &View, state: &mut State) {
                     state.crystals[player] += harvest;
                 },
                 Content::Eggs => {
-                    for &base in view.layout.bases[player].iter() {
-                        state.num_ants[player][base] += harvest;
+                    let num_bases = view.layout.bases[player].len();
+                    let mut remaining = harvest;
+                    for (index, &base) in view.layout.bases[player].iter().enumerate() {
+                        let num_bases_remaining = num_bases - index;
+                        let spawn_at_this_base = remaining / num_bases_remaining as i32;
+                        state.num_ants[player][base] += spawn_at_this_base;
+                        remaining -= spawn_at_this_base;
                     }
                 },
             }
