@@ -1,4 +1,4 @@
-use super::plans::Milestone;
+use super::planning::Milestone;
 use super::view::*;
 use rand::prelude::*;
 

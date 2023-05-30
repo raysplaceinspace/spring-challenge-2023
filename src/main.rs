@@ -6,9 +6,9 @@ mod inputs;
 mod mutations;
 mod movement;
 mod opponents;
-mod paths;
-mod plans;
-mod simulator;
+mod pathing;
+mod planning;
+mod simulation;
 mod view;
 
 use agent::Agent;

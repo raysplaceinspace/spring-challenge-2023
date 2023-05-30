@@ -6,7 +6,7 @@ use super::view::*;
 use super::evaluation;
 use super::mutations::Mutator;
 use super::opponents;
-use super::plans::{self,*};
+use super::planning::{self,*};
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
@@ -55,7 +55,7 @@ impl Agent {
             eprintln!("Predicted enemy countermove: {}", countermove.target);
         }
 
-        let actions = plans::enact_plan(ME, &best.plan, view, state);
+        let actions = planning::enact_plan(ME, &best.plan, view, state);
 
         actions
     }

@@ -1,5 +1,5 @@
 use super::inputs::*;
-use super::paths::*;
+use super::pathing::*;
 
 /// A Layout plus some pre-calculated values derived from the Layout
 pub struct View {
