@@ -8,7 +8,13 @@ const NUM_TICKS: u32 = 100;
 const DISCOUNT_RATE: f32 = 1.07;
 const WIN_PAYOFF: f32 = 100.0;
 
-pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
+#[derive(Clone,Debug)]
+pub struct Endgame {
+    pub tick: u32,
+    pub crystals: CrystalsPerPlayer,
+}
+
+pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
@@ -34,7 +40,11 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
         }
     }
 
-    payoff
+    let endgame = Endgame {
+        tick: state.tick,
+        crystals: state.crystals,
+    };
+    (payoff, endgame)
 }
 
 fn discount(payoff: f32, age: u32) -> f32 {

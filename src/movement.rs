@@ -25,7 +25,6 @@ pub fn spread_ants_across_beacons<'a>(beacons: &mut [i32], player: usize, state:
         for beacon in beacons.iter_mut() {
             *beacon = *beacon * total_ants / total_beacons;
         }
-
     }
 }
 

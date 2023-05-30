@@ -16,75 +16,59 @@ struct ExtensionPath {
 }
 
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Assignments {
-    if let Some(countermove) = predict_countermove(player, view, state) {
-        let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
-        let num_existing_cells = state.num_ants[player].iter().filter(|c| **c > 0).count() as i32;
-        if countermove.distance > total_ants {
-            // Cannot execute this countermove - it is too far
-            keep_existing_assignments(player, state)
+    let countermove = predict_countermove(player, view, state);
 
-        } else if num_existing_cells + countermove.distance > total_ants {
-            // Cannot execute this countermove and keep ants where they are - move existing ants from base to this new target
-            let base = view.layout.bases[player][0];
-            
-            let num_cells = view.layout.cells.len();
-            let mut beacons = Vec::new();
-            beacons.resize(num_cells, 0);
+    // Add the countermove as an extension of existing ants
+    let num_cells = view.layout.cells.len();
+    let mut beacons = Vec::new();
+    beacons.resize(num_cells, 0);
 
-            for cell in view.paths.calculate_path(base, countermove.target, &view.layout) {
-                beacons[cell] = 1;
-            }
+    // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
+    let busy = identify_busy_ants(player, view, state);
+    let mut best: Option<ExtensionPath> = None;
+    for cell in 0..num_cells {
+        if busy[cell] {
+            beacons[cell] = 1;
 
-            movement::spread_ants_across_beacons(&mut beacons, player, state);
-            beacons.into_boxed_slice()
-
-        } else {
-            // Add the countermove as an extension of existing ants
-            let num_cells = view.layout.cells.len();
-            let mut beacons = Vec::new();
-            beacons.resize(num_cells, 0);
-
-            // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
-            let busy = identify_busy_ants(player, view, state);
-            let mut best: Option<ExtensionPath> = None;
-            for cell in 0..num_cells {
-                if busy[cell] {
-                    beacons[cell] = 1;
-
-                    let distance = view.paths.distance_between(cell, countermove.target);
-                    if distance < best.as_ref().map(|b| b.distance).unwrap_or(std::i32::MAX) {
-                        best = Some(ExtensionPath { source: cell, distance });
-                    }
+            if let Some(countermove) = &countermove {
+                let distance = view.paths.distance_between(cell, countermove.target);
+                if distance < best.as_ref().map(|b| b.distance).unwrap_or(std::i32::MAX) {
+                    best = Some(ExtensionPath { source: cell, distance });
                 }
             }
-
-            // Extend to new cells
-            if let Some(best) = best {
-                // We have to find a new path to the countermove target (can't use countermove.source)
-                // because some of those ants may be idle and we have now removed those
-                for cell in view.paths.calculate_path(best.source, countermove.target, &view.layout) {
-                    beacons[cell] = 1;
-                }
-            }
-
-            movement::spread_ants_across_beacons(&mut beacons, player, state);
-            beacons.into_boxed_slice()
         }
-
-    } else {
-        keep_existing_assignments(player, state)
     }
-}
 
-fn keep_existing_assignments(player: usize, state: &State) -> Assignments {
-    state.num_ants[player].clone()
+    // Extend to new cells
+    // We have to find a new path to the countermove target (can't use countermove.source)
+    // because some of those ants may be idle and we have now removed those
+    if let Some(countermove) = countermove {
+        let source = best.map(|b| b.source).unwrap_or_else(|| view.layout.bases[player][0]);
+        for cell in view.paths.calculate_path(source, countermove.target, &view.layout) {
+            beacons[cell] = 1;
+        }
+    }
+
+    movement::spread_ants_across_beacons(&mut beacons, player, state);
+    beacons.into_boxed_slice()
 }
 
 pub fn predict_countermove(player: usize, view: &View, state: &State) -> Option<Countermove> {
     let idle_ants = find_idle_frontier(player, view, state);
     if idle_ants.is_empty() { return None } // All ants are busy - no need to move any ants. No action will just leave the ants where they are.
 
-    find_shortest_countermove(player, &idle_ants, view, state)
+    let countermove = match find_shortest_countermove(player, &idle_ants, view, state) {
+        Some(countermove) => countermove,
+        None => return None,
+    };
+
+    let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
+    if countermove.distance > total_ants {
+        // Cannot execute this countermove - it is too far
+        return None;
+    }
+
+    Some(countermove)
 }
 
 fn find_idle_frontier(player: usize, view: &View, state: &State) -> Vec<usize> {
