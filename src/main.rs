@@ -3,12 +3,12 @@ mod evaluation;
 mod interface;
 mod harvesting;
 mod inputs;
-mod mutations;
 mod movement;
 mod opponents;
 mod pathing;
 mod planning;
 mod simulation;
+mod solving;
 mod view;
 
 use agent::Agent;
@@ -22,7 +22,7 @@ fn main() {
     let layout = interface::read_initial();
     let view = View::new(layout);
 
-    let mut agent = Agent::new();
+    let mut agent = Agent::new(&view.layout);
     let mut previous_state: Option<State> = None;
     let mut tick = 0;
     loop {

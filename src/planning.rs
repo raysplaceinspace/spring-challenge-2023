@@ -24,7 +24,7 @@ impl Display for Milestone {
     }
 }
 
-pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Vec<Action> {
+pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> (Vec<Action>,PlanDetail) {
     let mut actions = Vec::new();
 
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
@@ -68,7 +68,30 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
 
     actions.push(Action::Message { text: format_harvest_msg(targets.as_slice()) });
 
-    actions
+    let detail = PlanDetail { targets };
+    (actions, detail)
+}
+
+pub struct PlanDetail {
+    pub targets: Vec<usize>,
+}
+impl Display for PlanDetail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.targets.is_empty() {
+            write!(f, "-")?;
+        } else {
+            let mut is_first = true;
+            for &target in self.targets.iter() {
+                if is_first {
+                    is_first = false;
+                } else {
+                    write!(f, " ")?;
+                }
+                write!(f, "{}", target)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 fn format_harvest_msg(targets: &[usize]) -> String {
@@ -81,6 +104,11 @@ fn format_harvest_msg(targets: &[usize]) -> String {
         }
         write!(&mut msg, "{}", target).ok();
     }
+
+    if msg.is_empty() {
+        msg.push_str("-");
+    }
+
     msg
 }
 

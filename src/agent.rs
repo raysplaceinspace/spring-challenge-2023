@@ -4,20 +4,26 @@ use std::time::Instant;
 use super::inputs::*;
 use super::view::*;
 use super::evaluation;
-use super::mutations::Mutator;
 use super::opponents;
 use super::planning::{self,*};
+use super::solving::{QuantileEstimator,PheromoneMatrix};
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
+const LEARNING_RATE: f32 = 0.01;
+
+const WALK_MIN_POWER: f32 = 1.0;
+const WALK_POWER_PER_ITERATION: f32 = 0.01;
 
 pub struct Agent {
+    pheromones: PheromoneMatrix,
     previous_plan: Option<Vec<Milestone>>,
     rng: StdRng,
 }
 impl Agent {
-    pub fn new() -> Self {
+    pub fn new(layout: &Layout) -> Self {
         Self {
+            pheromones: PheromoneMatrix::new(layout),
             previous_plan: None,
             rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
@@ -26,37 +32,44 @@ impl Agent {
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
         let start = Instant::now();
 
-        let mut best = Candidate::evaluate(self.previous_plan.take().unwrap_or_else(|| Vec::new()), view, state);
+        let mut best = Candidate::evaluate(self.previous_plan.take().unwrap_or_default(), view, state);
 
         let mut num_evaluated = 1;
         let mut num_improvements = 0;
 
-        if let Some(mutator) = Mutator::new(view, state) {
-            while start.elapsed().as_millis() < SEARCH_MS {
-                let plan = match mutator.mutate(&best.plan, &mut self.rng) {
-                    Some(plan) => plan,
-                    None => continue,
-                };
-                let candidate = Candidate::evaluate(plan, view, state);
-                num_evaluated += 1;
+        let mut scorer = QuantileEstimator::new();
 
-                if candidate.is_improvement(&best) {
-                    best = candidate;
-                    num_improvements += 1;
-                }
+        while start.elapsed().as_millis() < SEARCH_MS {
+            let walk_power = WALK_MIN_POWER + WALK_POWER_PER_ITERATION * num_evaluated as f32;
+
+            let mut plan = Vec::new();
+            for cell in self.pheromones.walk(walk_power, &mut self.rng, |cell| state.resources[cell] > 0) {
+                plan.push(Milestone::new(cell));
+            }
+            let candidate = Candidate::evaluate(plan, view, state);
+            num_evaluated += 1;
+
+            let quantile = scorer.quantile(candidate.score);
+            scorer.insert(candidate.score);
+            self.pheromones.learn(quantile, LEARNING_RATE, candidate.plan.iter().map(|m| m.cell));
+
+            if candidate.is_improvement(&best) {
+                best = candidate;
+                num_improvements += 1;
             }
         }
 
         eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
         eprintln!("{}", best);
-        self.previous_plan = Some(best.plan.clone());
 
         if let Some(countermove) = opponents::predict_countermove(ENEMY, view, &state) {
             eprintln!("Predicted enemy countermove: {}", countermove.target);
         }
 
-        let actions = planning::enact_plan(ME, &best.plan, view, state);
+        let (mut actions, detail) = planning::enact_plan(ME, &best.plan, view, state);
+        actions.push(Action::Message { text: format!("{}", detail) });
 
+        self.previous_plan = Some(best.plan);
         actions
     }
 }
@@ -91,5 +104,12 @@ impl Display for Candidate {
             write!(f, "{}", milestone)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn test_simple_layout() {
     }
 }

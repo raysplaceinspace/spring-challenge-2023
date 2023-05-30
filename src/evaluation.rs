@@ -6,17 +6,19 @@ use super::simulation;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DISCOUNT_RATE: f32 = 1.02;
-const WIN_PAYOFF: f32 = 10.0;
+const DISCOUNT_RATE: f32 = 1.07;
+const WIN_PAYOFF: f32 = 100.0;
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> f32 {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
     for age in 0..NUM_TICKS {
+        let (my_actions, _) = planning::enact_plan(ME, plan, view, &state);
+        let countermoves = opponents::enact_countermoves(ENEMY, view, &state);
         let actions = [
-            planning::enact_plan(ME, plan, view, &state),
-            opponents::enact_countermoves(ENEMY, view, &state),
+            my_actions,
+            countermoves,
         ];
 
         let assignments = [
