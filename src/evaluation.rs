@@ -5,6 +5,7 @@ use super::simulation;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
+const MAX_TICK: u32 = 100;
 const DECAY_RATE: f32 = 0.98;
 const WIN_PAYOFF: f32 = 1.0;
 
@@ -39,6 +40,8 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
             payoff += evaluate_win(winner, age);
             break;
         }
+
+        if state.tick >= MAX_TICK { break; }
     }
 
     let endgame = Endgame {
