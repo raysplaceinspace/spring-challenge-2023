@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
@@ -29,9 +30,9 @@ impl Display for Countermoves {
     }
 }
 
-struct Countermove {
+#[derive(Clone,Copy)]
+struct Link {
     pub source: usize,
-    pub target: usize,
     pub distance: i32,
 }
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
@@ -56,30 +57,35 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
     // Extend all idle frontiers towards their nearest harvestable cell - because that is where we anticipate they are heading towards
     let idle_ants = find_idle_frontier(player, view, state, &flow_distance_from_base, &busy);
-    let mut countermoves = find_closest_countermoves(player, &idle_ants, view, state);
+    let countermoves = find_closest_countermoves(player, &idle_ants, view, state);
+    let mut countermoves: HashMap<usize,Link> = countermoves.into_iter().map(|target| {
+        let closest = beacons.iter().map(|&source| {
+            Link { source, distance: view.paths.distance_between(source, target) }
+        }).min_by_key(|countermove| countermove.distance).expect("no beacons");
+        (target,closest)
+    }).collect();
     let mut targets = Vec::new();
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
-        if let Some(countermove) =
-            countermoves.iter().cloned().filter_map(|target| {
-                beacons.iter().cloned().map(|source| {
-                    Countermove {
-                        source,
-                        target,
-                        distance: view.paths.distance_between(source, target),
-                    }
-                }).min_by_key(|countermove| countermove.distance)
-            }).min_by_key(|countermove| countermove.distance) {
+        let (&target, &Link { source, distance }) =
+            countermoves.iter()
+            .min_by_key(|(_,x)| x.distance)
+            .expect("no countermoves");
 
-            if beacons.len() as i32 + countermove.distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
+        if beacons.len() as i32 + distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-            for cell in view.paths.calculate_path(countermove.source, countermove.target, &view.layout) {
-                beacons.insert(cell);
+        targets.push(target);
+        countermoves.remove(&target);
+
+        for beacon in view.paths.calculate_path(source, target, &view.layout) {
+            beacons.insert(beacon);
+
+            // New beacons may reduce the distance to the countermoves
+            for (&target, link) in countermoves.iter_mut() {
+                let distance = view.paths.distance_between(beacon, target);
+                if distance < link.distance {
+                    *link = Link { source: beacon, distance };
+                }
             }
-            targets.push(countermove.target);
-            countermoves.remove(&countermove.target);
-
-        } else {
-            break; // No countermoves remaining
         }
     }
 
