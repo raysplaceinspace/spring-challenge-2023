@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use super::inputs::Layout;
 use super::view::*;
 
 pub struct HarvestMap {
@@ -21,35 +22,25 @@ impl HarvestMap {
 }
 
 fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Box<[i32]> {
-    let mut max_flow = Vec::new();
-    max_flow.resize(view.layout.cells.len(), 0);
-
-    for &base in view.layout.bases[player].iter() {
-        let flows_to_base = calculate_flows_to_base(base, player, view, num_ants);
-        for i in 0..view.layout.cells.len() {
-            max_flow[i] = max_flow[i].max(flows_to_base[i]);
-        }
-    }
-
-    max_flow.into_boxed_slice()
+    calculate_flows_to_base(view.layout.bases[player].iter().cloned(), &view.layout, &num_ants[player])
 }
 
-fn calculate_flows_to_base(base: usize, player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Vec<i32> {
+fn calculate_flows_to_base(bases: impl Iterator<Item=usize>, layout: &Layout, num_ants: &AntsPerCell) -> Box<[i32]> {
     let mut flows = Vec::new();
-    flows.resize(view.layout.cells.len(), 0);
-
-    let num_base_ants = num_ants[player][base];
-    flows[base] = num_base_ants;
+    flows.resize(layout.cells.len(), 0);
 
     let mut queue = VecDeque::new();
-    queue.push_back(base);
+    for base in bases {
+        flows[base] = num_ants[base];
+        queue.push_back(base);
+    }
 
     while let Some(source) = queue.pop_front() {
         let source_flow = flows[source];
         if source_flow < 0 { continue }
 
-        for &neighbor in view.layout.cells[source].neighbors.iter() {
-            let neighbor_ants = num_ants[player][neighbor];
+        for &neighbor in layout.cells[source].neighbors.iter() {
+            let neighbor_ants = num_ants[neighbor];
             if neighbor_ants <= 0 { continue }
 
             let neighbor_flow = neighbor_ants.min(source_flow);
@@ -61,5 +52,5 @@ fn calculate_flows_to_base(base: usize, player: usize, view: &View, num_ants: &A
         }
     }
 
-    flows
+    flows.into_boxed_slice()
 }
