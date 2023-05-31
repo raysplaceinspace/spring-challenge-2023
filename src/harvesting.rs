@@ -8,12 +8,19 @@ pub struct HarvestMap {
 }
 impl HarvestMap {
     pub fn generate(view: &View, num_ants: &AntsPerCellPerPlayer) -> Self {
-        Self {
-            max_flow_per_player: [
-                calculate_max_flow_for_player(ME, view, num_ants),
-                calculate_max_flow_for_player(ENEMY, view, num_ants),
-            ],
-        }
+        let attack_chains_per_player = [
+            calculate_max_flow_for_player(ME, view, num_ants),
+            calculate_max_flow_for_player(ENEMY, view, num_ants),
+        ];
+
+        let num_unhindered_ants = calculate_unhindered_ants(&attack_chains_per_player, num_ants);
+
+        let max_flow_per_player = [
+            calculate_max_flow_for_player(ME, view, &num_unhindered_ants),
+            calculate_max_flow_for_player(ENEMY, view, &num_unhindered_ants),
+        ];
+
+        Self { max_flow_per_player }
     }
 
     pub fn calculate_harvest_at(&self, player: usize, cell: usize, available: i32) -> i32 {
@@ -57,4 +64,22 @@ fn calculate_flows_to_base(bases: impl Iterator<Item=usize>, layout: &Layout, nu
     }
 
     flows.into_boxed_slice()
+}
+
+fn calculate_unhindered_ants(attack_chains_per_player: &[Box<[i32]>; NUM_PLAYERS], num_ants: &AntsPerCellPerPlayer) -> AntsPerCellPerPlayer {
+    let mut unhindered = num_ants.clone();
+    let num_cells = attack_chains_per_player[ME].len();
+
+    for cell in 0..num_cells {
+        let my_attack_chain = attack_chains_per_player[ME][cell];
+        let enemy_attack_chain = attack_chains_per_player[ENEMY][cell];
+
+        if my_attack_chain > enemy_attack_chain {
+            unhindered[ENEMY][cell] = 0;
+        } else if enemy_attack_chain > my_attack_chain {
+            unhindered[ME][cell] = 0;
+        }
+    }
+
+    unhindered
 }
