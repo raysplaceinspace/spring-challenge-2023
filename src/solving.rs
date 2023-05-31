@@ -217,7 +217,7 @@ impl PheromoneMatrix {
             let walk = &mut walks[base_id];
 
             let row =
-                if let Some(&previous) = walk.path.last() {
+                if let Some(&previous) = walk.veins.last() {
                     &self.link_quantiles[previous]
                 } else {
                     &self.head_quantiles[base_id]
@@ -248,6 +248,7 @@ impl PheromoneMatrix {
                 allowed[id] = false;
                 num_remaining -= 1;
 
+                walk.veins.push(id);
                 priorities.push(Milestone::new(self.veins[id]));
 
             } else {
@@ -261,7 +262,7 @@ impl PheromoneMatrix {
     pub fn learn(&mut self, quantile: Quantile, learning_rate: f32, walks: &[Walk]) {
         for walk in walks.iter() {
             let mut previous = None;
-            for &cell in walk.path.iter() {
+            for &cell in walk.veins.iter() {
                 if let Some(Id::Vein(id)) = self.id_lookup[cell] {
                     let row =
                         if let Some(previous) = previous {
@@ -282,13 +283,13 @@ impl PheromoneMatrix {
 
 pub struct Walk {
     pub base: usize,
-    pub path: Vec<usize>,
+    pub veins: Vec<usize>, // vein ids
 }
 impl Walk {
     pub(self) fn new(base: usize) -> Self {
         Self {
             base,
-            path: Vec::new(),
+            veins: Vec::new(),
         }
     }
 }
