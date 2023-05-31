@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 
 use super::inputs::*;
+use super::planning;
 use super::view::*;
 use super::movement::{self,Assignments};
 
@@ -48,7 +49,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
-    let busy = identify_busy_ants(view, state, &flow_distance_from_base);
+    let (num_harvests, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
     for cell in 0..num_cells {
         if busy[cell] {
             beacons.insert(cell);
@@ -66,12 +67,20 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }).collect();
     let mut targets = Vec::new();
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
+        let initial_distance = beacons.len() as i32;
+        let initial_harvests = num_harvests + targets.len() as i32;
+        let initial_collection_rate = planning::calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
+
         let (&target, &Link { source, distance }) =
             countermoves.iter()
             .min_by_key(|(_,x)| x.distance)
             .expect("no countermoves");
 
-        if beacons.len() as i32 + distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
+        let new_distance = initial_distance + distance;
+        if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
+
+        let new_collection_rate = planning::calculate_collection_rate(total_ants, new_distance, initial_harvests + 1);
+        if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
         countermoves.remove(&target);
@@ -145,20 +154,22 @@ fn find_closest_countermoves(player: usize, idle_ants: &[usize], view: &View, st
     countermoves
 }
 
-fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> Box<[bool]> {
+fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> (i32,Box<[bool]>) {
     let num_cells = view.layout.cells.len();
 
     let mut busy = Vec::new();
     busy.resize(num_cells, false);
 
+    let mut num_harvests = 0;
     for cell in 0..num_cells {
         if state.resources[cell] <= 0 { continue } // nothing to harvest here
         if flow_distance_from_base[cell] == i32::MAX { continue } // not harvesting this cell
 
+        num_harvests += 1;
         mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &mut busy);
     }
 
-    busy.into_boxed_slice()
+    (num_harvests, busy.into_boxed_slice())
 }
 
 fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
