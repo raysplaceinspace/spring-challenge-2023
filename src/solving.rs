@@ -114,34 +114,14 @@ impl QuantileEstimator {
     }
 }
 
-#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash)]
-enum Id {
-    Base(usize),
-    Vein(usize),
-}
-impl Id {
-    pub fn into_base(self) -> usize {
-        match self {
-            Self::Base(id) => id,
-            Self::Vein(id) => panic!("expected base, found cell id={}", id),
-        }
-    }
-    pub fn into_cell(self) -> usize {
-        match self {
-            Self::Base(id) => panic!("expected cell, found base id={}", id),
-            Self::Vein(id) => id,
-        }
-    }
-}
-
 pub struct PheromoneMatrix {
-    /// cell to id
-    id_lookup: Box<[Option<Id>]>,
+    /// cell to vein id
+    id_lookup: Box<[Option<usize>]>,
 
-    /// id to cell
+    /// base id to cell
     bases: Box<[usize]>,
 
-    /// id to cell
+    /// vein id to cell
     veins: Box<[usize]>,
 
     /// base -> head -> quantile
@@ -161,20 +141,19 @@ impl PheromoneMatrix {
         let mut veins = Vec::new();
         for (index,cell) in view.layout.cells.iter().enumerate() {
             if cell.initial_resources > 0 {
-                let id = veins.len();
-                id_lookup[index] = Some(Id::Vein(id));
+                let vein = veins.len();
+                id_lookup[index] = Some(vein);
                 veins.push(index);
             }
         }
 
         let mut head_quantiles = Vec::new();
         let bases = view.layout.bases[player].clone();
-        for (id,&base) in bases.iter().enumerate() { // Assume both players have the same number of bases
+        for _ in 0..bases.len() { // Assume both players have the same number of bases
             // All cells have the same chance of being selected from the base
             let mut quantiles = Vec::new();
             quantiles.resize(veins.len(), INITIAL_QUANTILE);
             head_quantiles.push(quantiles.into_boxed_slice());
-            id_lookup[base] = Some(Id::Base(id));
         }
 
         let mut link_quantiles = Vec::new();
@@ -186,8 +165,8 @@ impl PheromoneMatrix {
             let mut quantiles = Vec::new();
             quantiles.resize(veins.len(), INITIAL_QUANTILE);
             for (index, &target) in targets.iter().enumerate() {
-                let id = id_lookup[target].expect("target missing id").into_cell();
-                quantiles[id] = INITIAL_QUANTILE_DECAY_BASE.powi(index as i32);
+                let vein = id_lookup[target].expect("target missing id");
+                quantiles[vein] = INITIAL_QUANTILE_DECAY_BASE.powi(index as i32);
             }
 
             link_quantiles.push(quantiles.into_boxed_slice());
@@ -207,16 +186,16 @@ impl PheromoneMatrix {
         let mut num_remaining = allowed.iter().filter(|&&allowed| allowed).count() as i32;
 
         let mut walks = Vec::with_capacity(self.bases.len());
-        for &base in self.bases.iter() {
-            walks.push(Walk::new(base));
+        for base_id in 0..self.bases.len() {
+            walks.push(Walk::new(base_id));
         }
 
         let mut priorities = Vec::new();
         while num_remaining > 0 {
-            let base_id = (num_remaining as usize) % self.bases.len();
+            let base_id = (num_remaining as usize) % walks.len();
             let walk = &mut walks[base_id];
 
-            let row =
+            let quantiles =
                 if let Some(&previous) = walk.veins.last() {
                     &self.link_quantiles[previous]
                 } else {
@@ -224,9 +203,9 @@ impl PheromoneMatrix {
                 };
 
             let mut total = 0.0;
-            for id in 0..row.len() {
-                if allowed[id] {
-                    total += row[id].powf(power);
+            for vein in 0..quantiles.len() {
+                if allowed[vein] {
+                    total += quantiles[vein].powf(power);
                 }
             }
 
@@ -234,22 +213,22 @@ impl PheromoneMatrix {
             let mut cumulative = 0.0;
             
             let mut selected = None;
-            for id in 0..row.len() {
-                if allowed[id] {
-                    cumulative += row[id].powf(power);
+            for vein in 0..quantiles.len() {
+                if allowed[vein] {
+                    cumulative += quantiles[vein].powf(power);
                     if selector <= cumulative {
-                        selected = Some(id);
+                        selected = Some(vein);
                         break;
                     }
                 }
             }
 
-            if let Some(id) = selected {
-                allowed[id] = false;
+            if let Some(vein) = selected {
+                allowed[vein] = false;
                 num_remaining -= 1;
 
-                walk.veins.push(id);
-                priorities.push(Milestone::new(self.veins[id]));
+                walk.veins.push(vein);
+                priorities.push(Milestone::new(self.veins[vein]));
 
             } else {
                 panic!("Failed to select a cell: total={}, cumulative={}, selector={}", total, cumulative, selector)
@@ -263,18 +242,17 @@ impl PheromoneMatrix {
         for walk in walks.iter() {
             let mut previous = None;
             for &cell in walk.veins.iter() {
-                if let Some(Id::Vein(id)) = self.id_lookup[cell] {
-                    let row =
+                if let Some(vein) = self.id_lookup[cell] {
+                    let quantiles =
                         if let Some(previous) = previous {
                             &mut self.link_quantiles[previous]
                         } else {
-                            let base_id = self.id_lookup[walk.base].expect("base missing id").into_base();
-                            &mut self.head_quantiles[base_id]
+                            &mut self.head_quantiles[walk.base_id]
                         };
-                    let weight = &mut row[id];
+                    let weight = &mut quantiles[vein];
                     *weight = (1.0 - learning_rate) * *weight + learning_rate * quantile.f32();
 
-                    previous = Some(id);
+                    previous = Some(vein);
                 }
             }
         }
@@ -282,13 +260,13 @@ impl PheromoneMatrix {
 }
 
 pub struct Walk {
-    pub base: usize,
+    pub base_id: usize, // base id (not the cell id)
     pub veins: Vec<usize>, // vein ids
 }
 impl Walk {
-    pub(self) fn new(base: usize) -> Self {
+    pub(self) fn new(base_id: usize) -> Self {
         Self {
-            base,
+            base_id,
             veins: Vec::new(),
         }
     }
