@@ -22,7 +22,7 @@ fn main() {
     let layout = interface::read_initial();
     let view = View::new(layout);
 
-    let mut agent = Agent::new(&view.layout);
+    let mut agent = Agent::new(&view);
     let mut previous_state: Option<State> = None;
     let mut tick = 0;
     loop {

@@ -1,8 +1,9 @@
 use rand::prelude::*;
 use std::fmt::Display;
-use super::inputs::*;
+use super::view::*;
 
 const INITIAL_QUANTILE: f32 = 0.5;
+const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.75;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
 #[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
@@ -119,18 +120,21 @@ pub struct PheromoneMatrix {
     /// id to cell
     cell_lookup: Box<[usize]>,
 
-    initial_quantiles: Box<[f32]>,
-    following_quantiles: Box<[Box<[f32]>]>,
+    /// average quantile that solutions beginning with this cell have
+    head_quantiles: Box<[f32]>,
+
+    /// average quantile that solutions traversing this cell-to-cell link have
+    link_quantiles: Box<[Box<[f32]>]>,
 }
 impl PheromoneMatrix {
-    pub fn new(layout: &Layout) -> Self {
-        let num_cells = layout.cells.len();
+    pub fn new(view: &View) -> Self {
+        let num_cells = view.layout.cells.len();
 
         let mut id_lookup = Vec::new();
         id_lookup.resize(num_cells, None);
 
         let mut cell_lookup = Vec::new();
-        for (index,cell) in layout.cells.iter().enumerate() {
+        for (index,cell) in view.layout.cells.iter().enumerate() {
             if cell.initial_resources > 0 {
                 let id = cell_lookup.len();
                 id_lookup[index] = Some(id);
@@ -140,17 +144,30 @@ impl PheromoneMatrix {
 
         let num_ids = cell_lookup.len();
 
-        let mut initial_quantiles = Vec::new();
-        initial_quantiles.resize(num_ids, INITIAL_QUANTILE);
+        let mut head_quantiles = Vec::new();
+        head_quantiles.resize(num_ids, INITIAL_QUANTILE);
 
-        let mut following_quantiles = Vec::new();
-        following_quantiles.resize_with(num_ids, || initial_quantiles.clone().into_boxed_slice());
+        let mut link_quantiles = Vec::new();
+        for &source in cell_lookup.iter() {
+            // Give closer cells a higher initial quantile
+            let mut targets = cell_lookup.clone();
+            targets.sort_by_key(|&target| view.paths.distance_between(source, target));
+
+            let mut quantiles = Vec::new();
+            quantiles.resize(num_ids, INITIAL_QUANTILE);
+            for (index, &target) in targets.iter().enumerate() {
+                let id = id_lookup[target].expect("target missing id");
+                quantiles[id] = INITIAL_QUANTILE_DECAY_BASE.powi(index as i32);
+            }
+
+            link_quantiles.push(quantiles.into_boxed_slice());
+        }
 
         Self {
             id_lookup: id_lookup.into_boxed_slice(),
             cell_lookup: cell_lookup.into_boxed_slice(),
-            initial_quantiles: initial_quantiles.into_boxed_slice(),
-            following_quantiles: following_quantiles.into_boxed_slice(),
+            head_quantiles: head_quantiles.into_boxed_slice(),
+            link_quantiles: link_quantiles.into_boxed_slice(),
         }
     }
 
@@ -164,9 +181,9 @@ impl PheromoneMatrix {
 
             let row =
                 if let Some(previous) = previous {
-                    &self.following_quantiles[previous]
+                    &self.link_quantiles[previous]
                 } else {
-                    &self.initial_quantiles
+                    &self.head_quantiles
                 };
 
             let mut total = 0.0;
@@ -201,10 +218,10 @@ impl PheromoneMatrix {
             if let Some(id) = self.id_lookup[cell] {
                 let weight: &mut f32 =
                     if let Some(previous) = previous {
-                        let row: &mut Box<[f32]> = &mut self.following_quantiles[previous];
+                        let row: &mut Box<[f32]> = &mut self.link_quantiles[previous];
                         &mut row[id]
                     } else {
-                        &mut self.initial_quantiles[id]
+                        &mut self.head_quantiles[id]
                     };
                 *weight = (1.0 - learning_rate) * *weight + learning_rate * quantile.f32();
 

@@ -23,9 +23,9 @@ pub struct Agent {
     rng: StdRng,
 }
 impl Agent {
-    pub fn new(layout: &Layout) -> Self {
+    pub fn new(view: &View) -> Self {
         Self {
-            pheromones: PheromoneMatrix::new(layout),
+            pheromones: PheromoneMatrix::new(view),
             previous_plan: None,
             rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
