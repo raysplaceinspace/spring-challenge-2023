@@ -69,7 +69,6 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         let initial_distance = beacons.len() as i32;
         let initial_harvests = num_harvests + targets.len() as i32;
-        let initial_collection_rate = planning::calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
 
         let (&target, &Link { source, distance }) =
             countermoves.iter()
@@ -79,6 +78,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         let new_distance = initial_distance + distance;
         if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
+        let initial_collection_rate = planning::calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
         let new_collection_rate = planning::calculate_collection_rate(total_ants, new_distance, initial_harvests + 1);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
