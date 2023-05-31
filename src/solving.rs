@@ -7,6 +7,8 @@ const INITIAL_QUANTILE: f32 = 0.5;
 const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.75;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
+const LEARNING_RATE: f32 = 0.01;
+
 #[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
 pub struct Quantile(f32);
 impl Quantile {
@@ -238,7 +240,7 @@ impl PheromoneMatrix {
         (priorities, walks.into_boxed_slice())
     }
 
-    pub fn learn(&mut self, quantile: Quantile, learning_rate: f32, walks: &[Walk]) {
+    pub fn learn(&mut self, quantile: Quantile, walks: &[Walk]) {
         for walk in walks.iter() {
             let mut previous = None;
             for &cell in walk.veins.iter() {
@@ -250,7 +252,7 @@ impl PheromoneMatrix {
                             &mut self.head_quantiles[walk.base_id]
                         };
                     let weight = &mut quantiles[vein];
-                    *weight = (1.0 - learning_rate) * *weight + learning_rate * quantile.f32();
+                    *weight = (1.0 - LEARNING_RATE) * *weight + LEARNING_RATE * quantile.f32();
 
                     previous = Some(vein);
                 }

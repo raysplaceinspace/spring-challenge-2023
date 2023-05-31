@@ -5,7 +5,7 @@ use super::simulation;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DISCOUNT_RATE: f32 = 1.02;
+const DECAY_RATE: f32 = 0.98;
 const WIN_PAYOFF: f32 = 1.0;
 
 #[derive(Clone,Debug)]
@@ -53,7 +53,7 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
 }
 
 fn discount(payoff: f32, age: u32) -> f32 {
-    payoff / DISCOUNT_RATE.powf(age as f32)
+    payoff * DECAY_RATE.powi(age as i32)
 }
 
 fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {

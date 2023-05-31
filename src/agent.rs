@@ -12,7 +12,6 @@ use super::solving::{QuantileEstimator,PheromoneMatrix};
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
-const LEARNING_RATE: f32 = 0.01;
 
 const WALK_MIN_POWER: f32 = 1.0;
 const WALK_POWER_PER_ITERATION: f32 = 0.01;
@@ -57,7 +56,7 @@ impl Agent {
 
             let quantile = scorer.quantile(candidate.score);
             scorer.insert(candidate.score);
-            self.pheromones.learn(quantile, LEARNING_RATE, &walks);
+            self.pheromones.learn(quantile, &walks);
 
             if candidate.is_improvement(&best) {
                 best = candidate;
