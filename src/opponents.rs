@@ -8,18 +8,32 @@ use super::movement::{self,Assignments};
 
 pub struct Countermoves {
     pub assignments: Assignments,
-    pub target: Option<usize>,
+    pub targets: Vec<usize>,
 }
 impl Display for Countermoves {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(target) = self.target {
-            target.fmt(f)
+        let mut is_first = true;
+        if self.targets.is_empty() {
+            write!(f, "-")?;
         } else {
-            write!(f, "-")
+            for &target in self.targets.iter() {
+                if is_first {
+                    is_first = false;
+                } else {
+                    write!(f, " ")?;
+                }
+                write!(f, "{}", target)?;
+            }
         }
+        Ok(())
     }
 }
 
+struct Countermove {
+    pub source: usize,
+    pub target: usize,
+    pub distance: i32,
+}
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
@@ -41,27 +55,38 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         }
     }
 
-    // Extend to the countermove target
+    // Extend all idle frontiers towards their nearest harvestable cell - because that is where we anticipate they are heading towards
     let idle_ants = find_idle_frontier(player, view, state, &flow_distance_from_base, &busy);
-    let mut countermove = None;
-    if let Some(target) = find_shortest_countermove(player, &idle_ants, &harvestable, view, state) {
-        // Find closest beacon to extend from
-        let source = beacons.iter().cloned().min_by_key(|&beacon| {
-            view.paths.distance_between(beacon, target)
-        }).unwrap_or_else(|| view.closest_bases[player][target]);
+    let mut countermoves = find_closest_countermoves(player, &idle_ants, &harvestable, view, state);
+    let mut targets = Vec::new();
+    while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
+        if let Some(countermove) =
+            countermoves.iter().cloned().filter_map(|target| {
+                beacons.iter().cloned().map(|source| {
+                    Countermove {
+                        source,
+                        target,
+                        distance: view.paths.distance_between(source, target),
+                    }
+                }).min_by_key(|countermove| countermove.distance)
+            }).min_by_key(|countermove| countermove.distance) {
 
-        if beacons.len() as i32 + view.paths.distance_between(source, target) <= total_ants { // If we can reach this target
-            for cell in view.paths.calculate_path(source, target, &view.layout) {
+            if beacons.len() as i32 + countermove.distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
+
+            for cell in view.paths.calculate_path(countermove.source, countermove.target, &view.layout) {
                 beacons.insert(cell);
             }
+            targets.push(countermove.target);
+            countermoves.remove(&countermove.target);
 
-            countermove = Some(target);
+        } else {
+            break; // No countermoves remaining
         }
     }
 
     Countermoves {
         assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, state),
-        target: countermove,
+        targets,
     }
 }
 
@@ -98,30 +123,22 @@ fn find_idle_frontier(player: usize, view: &View, state: &State, flow_distance_f
     frontier
 }
 
-struct ExtensionPath {
-    pub target: usize,
-    pub distance: i32,
-}
-fn find_shortest_countermove(player: usize, sources: &[usize], targets: &[usize], view: &View, state: &State) -> Option<usize> {
-    if sources.is_empty() || targets.is_empty() { return None }
+fn find_closest_countermoves(player: usize, idle_ants: &[usize], harvestable: &[usize], view: &View, state: &State) -> HashSet<usize> {
+    let mut countermoves = HashSet::new();
 
-    // Where are the idle ants going? Find cells unoccupied unharvested cells closest to the idle ants.
-    let countermove =
-        targets.iter()
-        .filter(|&&target| state.num_ants[player][target] == 0)
-        .filter_map(|&target| {
-            sources.iter().map(|source| {
-                ExtensionPath {
-                    target,
-                    distance: view.paths.distance_between(*source, target),
-                }
-            }).min_by_key(|c| c.distance)
-        })
-        .min_by_key(|c| c.distance);
-    match countermove {
-        Some(countermove) => Some(countermove.target),
-        None => None,
+    if !harvestable.is_empty() {
+        for &source in idle_ants.iter() {
+            if let Some(target) =
+                harvestable.iter().cloned()
+                .filter(|&target| state.num_ants[player][target] <= 0) // we expect the idle ants must be reaching to new, uncovered cells
+                .min_by_key(|&target| view.paths.distance_between(source, target)) {
+
+                countermoves.insert(target);
+            }
+        }
     }
+
+    countermoves
 }
 
 fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> Box<[bool]> {
@@ -138,6 +155,21 @@ fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32
     }
 
     busy.into_boxed_slice()
+}
+
+fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
+    busy[cell] = true;
+
+    let remaining_distance = flow_distance_from_base[cell];
+    if remaining_distance <= 0 { return }
+    else if remaining_distance == i32::MAX { return } // there won't be a path back to base from here
+
+    // Flow back to base along the neighbors that are closer to the base
+    for &neighbor in layout.cells[cell].neighbors.iter() {
+        if !busy[neighbor] && flow_distance_from_base[neighbor] < remaining_distance {
+            mark_return_path_as_busy(neighbor, flow_distance_from_base, layout, busy);
+        }
+    }
 }
 
 fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) -> Box<[i32]> {
@@ -166,19 +198,4 @@ fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) 
     }
 
     flow_distance_from_base.into_boxed_slice()
-}
-
-fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
-    busy[cell] = true;
-
-    let remaining_distance = flow_distance_from_base[cell];
-    if remaining_distance <= 0 { return }
-    else if remaining_distance == i32::MAX { return } // there won't be a path back to base from here
-
-    // Flow back to base along the neighbors that are closer to the base
-    for &neighbor in layout.cells[cell].neighbors.iter() {
-        if !busy[neighbor] && flow_distance_from_base[neighbor] < remaining_distance {
-            mark_return_path_as_busy(neighbor, flow_distance_from_base, layout, busy);
-        }
-    }
 }
