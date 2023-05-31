@@ -56,15 +56,16 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         }
     }
 
-    // Extend all idle frontiers towards their nearest harvestable cell - because that is where we anticipate they are heading towards
-    let idle_ants = find_idle_frontier(player, view, state, &flow_distance_from_base, &busy);
-    let countermoves = find_closest_countermoves(player, &idle_ants, view, state);
-    let mut countermoves: HashMap<usize,Link> = countermoves.into_iter().map(|target| {
-        let closest = beacons.iter().map(|&source| {
-            Link { source, distance: view.paths.distance_between(source, target) }
-        }).min_by_key(|countermove| countermove.distance).expect("no beacons");
-        (target,closest)
-    }).collect();
+    // Extend to collect nearby crystals
+    let mut countermoves: HashMap<usize,Link> =
+        (0..num_cells)
+        .filter(|&cell| view.layout.cells[cell].content == Some(Content::Crystals) && state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
+        .map(|target| {
+            let closest = beacons.iter().map(|&source| {
+                Link { source, distance: view.paths.distance_between(source, target) }
+            }).min_by_key(|countermove| countermove.distance).expect("no beacons");
+            (target,closest)
+        }).collect();
     let mut targets = Vec::new();
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         let initial_distance = beacons.len() as i32;
@@ -102,56 +103,6 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, state),
         targets,
     }
-}
-
-fn find_idle_frontier(player: usize, view: &View, state: &State, flow_distance_from_base: &[i32], busy: &[bool]) -> Vec<usize> {
-    let num_cells = view.layout.cells.len();
-    
-    let mut frontier = Vec::new();
-    for cell in 0..num_cells {
-        if state.num_ants[player][cell] <= 0 { continue } // we don't have any ants here
-        if busy[cell] { continue } // these ants are part of a harvesting chain - we have an explanation of what they are doing and don't need to find one
-
-        let my_distance = flow_distance_from_base[cell];
-        if my_distance == i32::MAX { continue } // disconnected from base - ignore these ants
-
-        let mut is_frontier = true;
-        for &neighbor in view.layout.cells[cell].neighbors.iter() {
-            if state.num_ants[player][neighbor] <= 0 { continue } // neighbor is empty
-
-            let neighbor_distance = flow_distance_from_base[cell];
-            if neighbor_distance == i32::MAX { continue } // disconnected from base - ignore these ants
-
-            if neighbor_distance > my_distance {
-                // neighbor is further from the base than me - they are the frontier, if either of us are
-                is_frontier = false;
-                break;
-            }
-        }
-
-        if is_frontier {
-            frontier.push(cell);
-        }
-    }
-
-    frontier
-}
-
-fn find_closest_countermoves(player: usize, idle_ants: &[usize], view: &View, state: &State) -> HashSet<usize> {
-    let mut countermoves = HashSet::new();
-    let num_cells = view.layout.cells.len();
-
-    // expect the idle ants must be reaching to new, uncovered cells
-    let yet_to_harvest: Vec<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0).collect();
-    if !yet_to_harvest.is_empty() {
-        for &source in idle_ants.iter() {
-            if let Some(target) = yet_to_harvest.iter().cloned().min_by_key(|&target| view.paths.distance_between(source, target)) {
-                countermoves.insert(target);
-            }
-        }
-    }
-
-    countermoves
 }
 
 fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> (i32,Box<[bool]>) {
