@@ -63,22 +63,14 @@ fn main() {
 }
 
 fn harvest(view: &View, num_ants: &AntsPerCellPerPlayer, available_resources: &ResourcesPerCell, harvested: &mut CrystalsPerPlayer) {
-    for player in 0..NUM_PLAYERS {
-        let harvest_map = HarvestMap::generate(player, view, num_ants);
+    let harvest_map = HarvestMap::generate(view, num_ants);
+    for cell in 0..view.layout.cells.len() {
+        if view.layout.cells[cell].content != Some(Content::Crystals) { continue; }
 
-        for cell in 0..view.layout.cells.len() {
-            if let Some(remaining_crystals) = view::remaining_crystals(cell, available_resources, view) {
-                let harvest = harvest_map.calculate_harvest_at(cell, remaining_crystals);
-                if harvest > 0 {
-                    /*
-                    eprintln!(
-                        "{} harvested {} crystals from {}",
-                        if player == 0 { "We" } else { "Enemy" },
-                        harvest, cell);
-                    */
-
-                    harvested[player] += harvest;
-                }
+        for player in 0..NUM_PLAYERS {
+            let harvest = harvest_map.calculate_harvest_at(player, cell, available_resources[cell]);
+            if harvest > 0 {
+                harvested[player] += harvest;
             }
         }
     }

@@ -1,21 +1,25 @@
 use std::collections::VecDeque;
-use super::inputs::Layout;
+
+use super::inputs::*;
 use super::view::*;
 
 pub struct HarvestMap {
-    max_flow: Box<[i32]>,
+    max_flow_per_player: [Box<[i32]>; NUM_PLAYERS],
 }
 impl HarvestMap {
-    pub fn generate(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Self {
+    pub fn generate(view: &View, num_ants: &AntsPerCellPerPlayer) -> Self {
         Self {
-            max_flow: calculate_max_flow_for_player(player, view, num_ants),
+            max_flow_per_player: [
+                calculate_max_flow_for_player(ME, view, num_ants),
+                calculate_max_flow_for_player(ENEMY, view, num_ants),
+            ],
         }
     }
 
-    pub fn calculate_harvest_at(&self, cell: usize, available: i32) -> i32 {
+    pub fn calculate_harvest_at(&self, player: usize, cell: usize, available: i32) -> i32 {
         if available <= 0 { return 0 }
 
-        let demand = self.max_flow[cell];
+        let demand = self.max_flow_per_player[player][cell];
         let harvest = demand.min(available);
         harvest
     }

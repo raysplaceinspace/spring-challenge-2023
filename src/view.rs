@@ -61,14 +61,6 @@ impl State {
     }
 }
 
-pub fn remaining_crystals(cell: usize, resources: &ResourcesPerCell, view: &View) -> Option<i32> {
-    if view.layout.cells[cell].content == Some(Content::Crystals) {
-        Some(resources[cell])
-    } else {
-        None
-    }
-}
-
 pub fn find_winner(crystals: &CrystalsPerPlayer, view: &View) -> Option<usize> {
     let threshold = view.initial_crystals / 2;
     for player in 0..NUM_PLAYERS {
