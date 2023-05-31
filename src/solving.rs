@@ -3,7 +3,7 @@ use std::fmt::Display;
 use super::view::*;
 
 const INITIAL_QUANTILE: f32 = 0.5;
-const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.75;
+const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.5;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
 #[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
