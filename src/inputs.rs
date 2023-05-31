@@ -5,6 +5,8 @@ pub const ME: usize = 0;
 #[allow(dead_code)]
 pub const ENEMY: usize = 1;
 
+pub type CrystalsPerPlayer = [i32; NUM_PLAYERS];
+
 pub struct Layout {
     pub cells: Box<[CellLayout]>,
     pub bases: [Box<[usize]>; NUM_PLAYERS],

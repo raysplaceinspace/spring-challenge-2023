@@ -2,6 +2,7 @@ use std::io;
 use super::inputs::*;
 
 pub struct TurnInput {
+    pub crystals_per_player: CrystalsPerPlayer,
     pub num_ants_per_cell: [Box<[i32]>; NUM_PLAYERS],
     pub resources_per_cell: Box<[i32]>,
 }
@@ -77,6 +78,16 @@ pub fn read_turn(layout: &Layout) -> TurnInput {
     let mut num_my_ants_per_cell = Vec::with_capacity(layout.cells.len());
     let mut num_enemy_ants_per_cell = Vec::with_capacity(layout.cells.len());
 
+    let crystals_per_player = {
+        let mut input_line = String::new();
+        io::stdin().read_line(&mut input_line).unwrap();
+        let inputs = input_line.split(" ").collect::<Vec<_>>();
+        [
+            parse_input!(inputs[0], i32),
+            parse_input!(inputs[1], i32),
+        ]
+    };
+
     for _ in 0..layout.cells.len() {
         let mut input_line = String::new();
         io::stdin().read_line(&mut input_line).unwrap();
@@ -88,6 +99,7 @@ pub fn read_turn(layout: &Layout) -> TurnInput {
     }
 
     TurnInput {
+        crystals_per_player,
         resources_per_cell: resources_per_cell.into_boxed_slice(),
         num_ants_per_cell: [
             num_my_ants_per_cell.into_boxed_slice(),

@@ -4,7 +4,6 @@ use super::pathing::*;
 pub type AntsPerCell = Box<[i32]>;
 pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
 pub type ResourcesPerCell = Box<[i32]>;
-pub type CrystalsPerPlayer = [i32; NUM_PLAYERS];
 pub type ClosestBases = Box<[usize]>;
 pub type ClosestBasesPerPlayer = [ClosestBases; NUM_PLAYERS];
 
