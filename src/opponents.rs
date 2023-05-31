@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt::Display;
 
+use super::fnv::{FnvHashMap,FnvHashSet};
 use super::inputs::*;
 use super::planning;
 use super::view::*;
@@ -40,7 +39,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
-    let mut beacons = HashSet::new();
+    let mut beacons = FnvHashSet::default();
 
     // Always begin the calculation with ants on the bases so we have somewhere to extend from
     for &base in view.layout.bases[player].iter() {
@@ -57,7 +56,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 
     // Extend to collect nearby crystals
-    let mut countermoves: HashMap<usize,Link> =
+    let mut countermoves: FnvHashMap<usize,Link> =
         (0..num_cells)
         .filter(|&cell| view.layout.cells[cell].content == Some(Content::Crystals) && state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
         .map(|target| {

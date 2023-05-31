@@ -41,6 +41,7 @@ impl Agent {
             None => Vec::new(),
         };
         let mut best = Candidate::evaluate(initial_plan, view, state);
+        eprintln!("initial: {}", best);
 
         let mut num_evaluated = 1;
         let mut num_improvements = 0;
@@ -65,7 +66,7 @@ impl Agent {
         }
 
         eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
-        eprintln!("{}", best);
+        eprintln!("best: {}", best);
 
         eprintln!(
             "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",

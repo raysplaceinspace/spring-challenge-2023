@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::HashSet;
+use super::fnv::FnvHashSet;
 use std::fmt::Display;
 
 use super::movement;
@@ -28,7 +28,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
 
     let mut targets = Vec::new();
-    let mut beacons = HashSet::new();
+    let mut beacons = FnvHashSet::default();
     for &base in view.layout.bases[player].iter() {
         beacons.insert(base);
     }

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use super::fnv::FnvHashSet;
 
 use super::inputs::*;
 use super::view::*;
@@ -59,8 +59,8 @@ pub fn move_ants_for_player(assignments: &Assignments, view: &View, num_ants: &m
 
     // Calculate sources and sinks
     let mut excess: Vec<i32> = Vec::with_capacity(num_cells);
-    let mut sources: HashSet<usize> = HashSet::new();
-    let mut sinks: HashSet<usize> = HashSet::new();
+    let mut sources: FnvHashSet<usize> = FnvHashSet::default();
+    let mut sinks: FnvHashSet<usize> = FnvHashSet::default();
     for cell in 0..num_cells {
         let cell_excess = num_ants[cell] - assignments[cell];
         if cell_excess > 0 {

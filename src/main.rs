@@ -1,5 +1,6 @@
 mod agent;
 mod evaluation;
+mod fnv;
 mod interface;
 mod harvesting;
 mod inputs;

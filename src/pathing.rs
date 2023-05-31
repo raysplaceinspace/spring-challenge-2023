@@ -1,4 +1,6 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
+use super::fnv::FnvHashMap;
+
 use super::inputs::*;
 
 pub struct PathMap {
@@ -43,7 +45,7 @@ pub struct DistanceMap {
 }
 impl DistanceMap {
     pub fn generate(source: usize, layout: &Layout) -> Self {
-        let mut lookup = HashMap::new();
+        let mut lookup = FnvHashMap::default();
         lookup.insert(source, 0);
 
         let mut queue = VecDeque::new();
