@@ -38,9 +38,8 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
-    let harvestable: Vec<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0).collect();
     let mut beacons = HashSet::new();
-    
+
     // Always begin the calculation with ants on the bases so we have somewhere to extend from
     for &base in view.layout.bases[player].iter() {
         beacons.insert(base);
@@ -57,7 +56,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
     // Extend all idle frontiers towards their nearest harvestable cell - because that is where we anticipate they are heading towards
     let idle_ants = find_idle_frontier(player, view, state, &flow_distance_from_base, &busy);
-    let mut countermoves = find_closest_countermoves(player, &idle_ants, &harvestable, view, state);
+    let mut countermoves = find_closest_countermoves(player, &idle_ants, view, state);
     let mut targets = Vec::new();
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         if let Some(countermove) =
@@ -123,16 +122,15 @@ fn find_idle_frontier(player: usize, view: &View, state: &State, flow_distance_f
     frontier
 }
 
-fn find_closest_countermoves(player: usize, idle_ants: &[usize], harvestable: &[usize], view: &View, state: &State) -> HashSet<usize> {
+fn find_closest_countermoves(player: usize, idle_ants: &[usize], view: &View, state: &State) -> HashSet<usize> {
     let mut countermoves = HashSet::new();
+    let num_cells = view.layout.cells.len();
 
-    if !harvestable.is_empty() {
+    // expect the idle ants must be reaching to new, uncovered cells
+    let yet_to_harvest: Vec<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0).collect();
+    if !yet_to_harvest.is_empty() {
         for &source in idle_ants.iter() {
-            if let Some(target) =
-                harvestable.iter().cloned()
-                .filter(|&target| state.num_ants[player][target] <= 0) // we expect the idle ants must be reaching to new, uncovered cells
-                .min_by_key(|&target| view.paths.distance_between(source, target)) {
-
+            if let Some(target) = yet_to_harvest.iter().cloned().min_by_key(|&target| view.paths.distance_between(source, target)) {
                 countermoves.insert(target);
             }
         }
