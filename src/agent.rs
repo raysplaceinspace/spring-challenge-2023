@@ -23,9 +23,9 @@ pub struct Agent {
     rng: StdRng,
 }
 impl Agent {
-    pub fn new(view: &View) -> Self {
+    pub fn new(player: usize, view: &View) -> Self {
         Self {
-            pheromones: PheromoneMatrix::new(view),
+            pheromones: PheromoneMatrix::new(player, view),
             previous_plan: None,
             rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
@@ -51,16 +51,13 @@ impl Agent {
         while start.elapsed().as_millis() < SEARCH_MS {
             let walk_power = WALK_MIN_POWER + WALK_POWER_PER_ITERATION * num_evaluated as f32;
 
-            let mut plan = Vec::new();
-            for cell in self.pheromones.walk(walk_power, &mut self.rng, |cell| state.resources[cell] > 0) {
-                plan.push(Milestone::new(cell));
-            }
+            let (plan, walks) = self.pheromones.generate(walk_power, &mut self.rng, |cell| state.resources[cell] > 0);
             let candidate = Candidate::evaluate(plan, view, state);
             num_evaluated += 1;
 
             let quantile = scorer.quantile(candidate.score);
             scorer.insert(candidate.score);
-            self.pheromones.learn(quantile, LEARNING_RATE, candidate.plan.iter().map(|m| m.cell));
+            self.pheromones.learn(quantile, LEARNING_RATE, &walks);
 
             if candidate.is_improvement(&best) {
                 best = candidate;

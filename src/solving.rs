@@ -1,5 +1,6 @@
 use rand::prelude::*;
 use std::fmt::Display;
+use super::planning::Milestone;
 use super::view::*;
 
 const INITIAL_QUANTILE: f32 = 0.5;
@@ -113,50 +114,79 @@ impl QuantileEstimator {
     }
 }
 
+#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash)]
+enum Id {
+    Base(usize),
+    Vein(usize),
+}
+impl Id {
+    pub fn into_base(self) -> usize {
+        match self {
+            Self::Base(id) => id,
+            Self::Vein(id) => panic!("expected base, found cell id={}", id),
+        }
+    }
+    pub fn into_cell(self) -> usize {
+        match self {
+            Self::Base(id) => panic!("expected cell, found base id={}", id),
+            Self::Vein(id) => id,
+        }
+    }
+}
+
 pub struct PheromoneMatrix {
     /// cell to id
-    id_lookup: Box<[Option<usize>]>,
+    id_lookup: Box<[Option<Id>]>,
 
     /// id to cell
-    cell_lookup: Box<[usize]>,
+    bases: Box<[usize]>,
 
+    /// id to cell
+    veins: Box<[usize]>,
+
+    /// base -> head -> quantile
     /// average quantile that solutions beginning with this cell have
-    head_quantiles: Box<[f32]>,
+    head_quantiles: Box<[Box<[f32]>]>,
 
     /// average quantile that solutions traversing this cell-to-cell link have
     link_quantiles: Box<[Box<[f32]>]>,
 }
 impl PheromoneMatrix {
-    pub fn new(view: &View) -> Self {
+    pub fn new(player: usize, view: &View) -> Self {
         let num_cells = view.layout.cells.len();
 
         let mut id_lookup = Vec::new();
         id_lookup.resize(num_cells, None);
 
-        let mut cell_lookup = Vec::new();
+        let mut veins = Vec::new();
         for (index,cell) in view.layout.cells.iter().enumerate() {
             if cell.initial_resources > 0 {
-                let id = cell_lookup.len();
-                id_lookup[index] = Some(id);
-                cell_lookup.push(index);
+                let id = veins.len();
+                id_lookup[index] = Some(Id::Vein(id));
+                veins.push(index);
             }
         }
 
-        let num_ids = cell_lookup.len();
-
         let mut head_quantiles = Vec::new();
-        head_quantiles.resize(num_ids, INITIAL_QUANTILE);
+        let bases = view.layout.bases[player].clone();
+        for (id,&base) in bases.iter().enumerate() { // Assume both players have the same number of bases
+            // All cells have the same chance of being selected from the base
+            let mut quantiles = Vec::new();
+            quantiles.resize(veins.len(), INITIAL_QUANTILE);
+            head_quantiles.push(quantiles.into_boxed_slice());
+            id_lookup[base] = Some(Id::Base(id));
+        }
 
         let mut link_quantiles = Vec::new();
-        for &source in cell_lookup.iter() {
+        for &source in veins.iter() {
             // Give closer cells a higher initial quantile
-            let mut targets = cell_lookup.clone();
+            let mut targets = veins.clone();
             targets.sort_by_key(|&target| view.paths.distance_between(source, target));
 
             let mut quantiles = Vec::new();
-            quantiles.resize(num_ids, INITIAL_QUANTILE);
+            quantiles.resize(veins.len(), INITIAL_QUANTILE);
             for (index, &target) in targets.iter().enumerate() {
-                let id = id_lookup[target].expect("target missing id");
+                let id = id_lookup[target].expect("target missing id").into_cell();
                 quantiles[id] = INITIAL_QUANTILE_DECAY_BASE.powi(index as i32);
             }
 
@@ -165,25 +195,32 @@ impl PheromoneMatrix {
 
         Self {
             id_lookup: id_lookup.into_boxed_slice(),
-            cell_lookup: cell_lookup.into_boxed_slice(),
+            bases,
+            veins: veins.into_boxed_slice(),
             head_quantiles: head_quantiles.into_boxed_slice(),
             link_quantiles: link_quantiles.into_boxed_slice(),
         }
     }
 
-    pub fn walk<'a>(&'a self, power: f32, rng: &'a mut StdRng, is_allowed: impl Fn(usize) -> bool) -> impl Iterator<Item=usize> + 'a {
-        let mut allowed: Vec<bool> = self.cell_lookup.iter().map(|&cell| is_allowed(cell)).collect();
+    pub fn generate(&self, power: f32, rng: &mut StdRng, is_allowed: impl Fn(usize) -> bool) -> (Vec<Milestone>,Box<[Walk]>) {
+        let mut allowed: Vec<bool> = self.veins.iter().map(|&cell| is_allowed(cell)).collect();
         let mut num_remaining = allowed.iter().filter(|&&allowed| allowed).count() as i32;
 
-        let mut previous: Option<usize> = None;
-        std::iter::from_fn(move || {
-            if num_remaining <= 0 { return None };
+        let mut walks = Vec::with_capacity(self.bases.len());
+        for &base in self.bases.iter() {
+            walks.push(Walk::new(base));
+        }
+
+        let mut priorities = Vec::new();
+        while num_remaining > 0 {
+            let base_id = (num_remaining as usize) % self.bases.len();
+            let walk = &mut walks[base_id];
 
             let row =
-                if let Some(previous) = previous {
+                if let Some(&previous) = walk.path.last() {
                     &self.link_quantiles[previous]
                 } else {
-                    &self.head_quantiles
+                    &self.head_quantiles[base_id]
                 };
 
             let mut total = 0.0;
@@ -195,38 +232,63 @@ impl PheromoneMatrix {
 
             let selector = total * rng.gen::<f32>();
             let mut cumulative = 0.0;
+            
+            let mut selected = None;
             for id in 0..row.len() {
                 if allowed[id] {
                     cumulative += row[id].powf(power);
                     if selector <= cumulative {
-                        allowed[id] = false;
-                        num_remaining -= 1;
-                        previous = Some(id);
-
-                        return Some(self.cell_lookup[id]);
+                        selected = Some(id);
+                        break;
                     }
                 }
             }
 
-            panic!("Failed to select a cell: total={}, cumulative={}, selector={}", total, cumulative, selector)
-        })
+            if let Some(id) = selected {
+                allowed[id] = false;
+                num_remaining -= 1;
+
+                priorities.push(Milestone::new(self.veins[id]));
+
+            } else {
+                panic!("Failed to select a cell: total={}, cumulative={}, selector={}", total, cumulative, selector)
+            }
+        }
+
+        (priorities, walks.into_boxed_slice())
     }
 
-    pub fn learn(&mut self, quantile: Quantile, learning_rate: f32, path: impl Iterator<Item=usize>) {
-        let mut previous = None;
-        for cell in path {
-            if let Some(id) = self.id_lookup[cell] {
-                let weight: &mut f32 =
-                    if let Some(previous) = previous {
-                        let row: &mut Box<[f32]> = &mut self.link_quantiles[previous];
-                        &mut row[id]
-                    } else {
-                        &mut self.head_quantiles[id]
-                    };
-                *weight = (1.0 - learning_rate) * *weight + learning_rate * quantile.f32();
+    pub fn learn(&mut self, quantile: Quantile, learning_rate: f32, walks: &[Walk]) {
+        for walk in walks.iter() {
+            let mut previous = None;
+            for &cell in walk.path.iter() {
+                if let Some(Id::Vein(id)) = self.id_lookup[cell] {
+                    let row =
+                        if let Some(previous) = previous {
+                            &mut self.link_quantiles[previous]
+                        } else {
+                            let base_id = self.id_lookup[walk.base].expect("base missing id").into_base();
+                            &mut self.head_quantiles[base_id]
+                        };
+                    let weight = &mut row[id];
+                    *weight = (1.0 - learning_rate) * *weight + learning_rate * quantile.f32();
 
-                previous = Some(id);
+                    previous = Some(id);
+                }
             }
+        }
+    }
+}
+
+pub struct Walk {
+    pub base: usize,
+    pub path: Vec<usize>,
+}
+impl Walk {
+    pub(self) fn new(base: usize) -> Self {
+        Self {
+            base,
+            path: Vec::new(),
         }
     }
 }

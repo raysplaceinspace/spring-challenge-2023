@@ -63,7 +63,7 @@ impl State {
 pub fn find_winner(crystals: &CrystalsPerPlayer, view: &View) -> Option<usize> {
     let threshold = view.initial_crystals / 2;
     for player in 0..NUM_PLAYERS {
-        if crystals[player] > threshold {
+        if crystals[player] >= threshold {
             return Some(player);
         }
     }

@@ -21,7 +21,7 @@ fn main() {
     let layout = interface::read_initial();
     let view = View::new(layout);
 
-    let mut agent = Agent::new(&view);
+    let mut agent = Agent::new(ME, &view);
     let mut tick = 0;
     loop {
         // Read input
