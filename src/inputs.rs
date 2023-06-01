@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+pub const MAX_TICKS: u32 = 100;
+
 pub const NUM_PLAYERS: usize = 2;
 pub const ME: usize = 0;
 #[allow(dead_code)]

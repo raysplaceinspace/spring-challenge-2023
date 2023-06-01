@@ -3,7 +3,6 @@ use std::fmt::Display;
 
 use super::fnv::{FnvHashMap,FnvHashSet};
 use super::inputs::*;
-use super::planning;
 use super::view::*;
 use super::movement::{self,Assignments};
 
@@ -78,8 +77,8 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         let new_distance = initial_distance + distance;
         if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = planning::calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
-        let new_collection_rate = planning::calculate_collection_rate(total_ants, new_distance, initial_harvests + 1);
+        let initial_collection_rate = calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
+        let new_collection_rate = calculate_collection_rate(total_ants, new_distance, initial_harvests + 1);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
@@ -163,4 +162,10 @@ fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) 
     }
 
     flow_distance_from_base.into_boxed_slice()
+}
+
+fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {
+    if total_distance <= 0 { return 0 }
+    let per_cell = total_ants / total_distance; // intentional integer division since ants can't be split
+    num_harvests * per_cell
 }
