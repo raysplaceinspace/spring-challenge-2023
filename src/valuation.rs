@@ -1,6 +1,20 @@
 use super::inputs::{Content,MAX_TICKS};
 use super::view::*;
 
+#[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
+pub struct ValueOrd(pub f32);
+impl ValueOrd {
+    pub fn new(value: f32) -> Self {
+        Self(value)
+    }
+}
+impl Eq for ValueOrd {}
+impl Ord for ValueOrd {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).expect("unexpected NaN for value")
+    }
+}
+
 pub struct ValuationCalculator {
     total_ants: i32,
     value_per_egg: f32,

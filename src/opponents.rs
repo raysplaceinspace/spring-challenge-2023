@@ -6,7 +6,7 @@ use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
 use super::pathing::NearbyPathMap;
-use super::valuation::{ValuationCalculator,NumHarvests};
+use super::valuation::{ValueOrd,ValuationCalculator,NumHarvests};
 
 pub struct Countermoves {
     pub assignments: Assignments,
@@ -60,7 +60,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let evaluator = ValuationCalculator::new(player, view, state);
     let mut countermoves: FnvHashMap<usize,Link> =
         (0..num_cells)
-        .filter(|&cell| view.layout.cells[cell].content == Some(Content::Crystals) && state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
+        .filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
         .map(|target| {
             let closest = beacons.iter().map(|&source| {
                 Link { source, distance: view.paths.distance_between(source, target) }
@@ -70,9 +70,13 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
-        let (&target, &Link { source, distance }) =
+        let (target, Link { source, distance }, new_counts) =
             countermoves.iter()
-            .min_by_key(|(_,x)| x.distance)
+            .map(|(&target,&link)| {
+                let new_counts = counts.clone().add(view.layout.cells[target].content);
+                (target, link, new_counts)
+            })
+            .max_by_key(|(_,link,new_counts)| ValueOrd::new(evaluator.calculate(&new_counts, link.distance)))
             .expect("no countermoves");
 
         let initial_distance = beacons.len() as i32;
@@ -80,7 +84,6 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
         let initial_collection_rate = evaluator.calculate(&counts, initial_distance);
-        let new_counts = counts.clone().add(view.layout.cells[target].content);
         let new_collection_rate = evaluator.calculate(&new_counts, new_distance);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
@@ -157,12 +160,13 @@ fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) 
         let source_distance = flow_distance_from_base[source];
 
         let neighbor_distance = source_distance + 1;
-        for &neighbor in view.layout.cells[source].neighbors.iter() {
-            if state.num_ants[player][neighbor] <= 0 { continue }
-            if flow_distance_from_base[neighbor] <= neighbor_distance { continue }
+        for &n in view.layout.cells[source].neighbors.iter() {
+            if state.num_ants[player][n] <= 0 { continue }
 
-            flow_distance_from_base[neighbor] = neighbor_distance;
-            queue.push_back(neighbor);
+            if flow_distance_from_base[n] > neighbor_distance {
+                flow_distance_from_base[n] = neighbor_distance;
+                queue.push_back(n);
+            }
         }
     }
 
