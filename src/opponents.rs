@@ -5,6 +5,7 @@ use super::fnv::{FnvHashMap,FnvHashSet};
 use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
+use super::valuation::{ValuationCalculator,NumHarvests};
 
 pub struct Countermoves {
     pub assignments: Assignments,
@@ -47,7 +48,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
-    let (num_harvests, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
+    let (mut counts, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
     for cell in 0..num_cells {
         if busy[cell] {
             beacons.insert(cell);
@@ -55,6 +56,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 
     // Extend to collect nearby crystals
+    let evaluator = ValuationCalculator::new(player, view, state);
     let mut countermoves: FnvHashMap<usize,Link> =
         (0..num_cells)
         .filter(|&cell| view.layout.cells[cell].content == Some(Content::Crystals) && state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
@@ -66,23 +68,23 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         }).collect();
     let mut targets = Vec::new();
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
-        let initial_distance = beacons.len() as i32;
-        let initial_harvests = num_harvests + targets.len() as i32;
-
         let (&target, &Link { source, distance }) =
             countermoves.iter()
             .min_by_key(|(_,x)| x.distance)
             .expect("no countermoves");
 
+        let initial_distance = beacons.len() as i32;
         let new_distance = initial_distance + distance;
         if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = calculate_collection_rate(total_ants, beacons.len() as i32, initial_harvests);
-        let new_collection_rate = calculate_collection_rate(total_ants, new_distance, initial_harvests + 1);
+        let initial_collection_rate = evaluator.calculate(&counts, initial_distance);
+        let new_counts = counts.clone().add(view.layout.cells[target].content);
+        let new_collection_rate = evaluator.calculate(&new_counts, new_distance);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
         countermoves.remove(&target);
+        counts = new_counts;
 
         for beacon in view.paths.calculate_path(source, target, &view.layout) {
             beacons.insert(beacon);
@@ -103,22 +105,22 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 }
 
-fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> (i32,Box<[bool]>) {
+fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> (NumHarvests,Box<[bool]>) {
     let num_cells = view.layout.cells.len();
 
     let mut busy = Vec::new();
     busy.resize(num_cells, false);
 
-    let mut num_harvests = 0;
+    let mut counts = NumHarvests::new();
     for cell in 0..num_cells {
         if state.resources[cell] <= 0 { continue } // nothing to harvest here
         if flow_distance_from_base[cell] == i32::MAX { continue } // not harvesting this cell
 
-        num_harvests += 1;
+        counts = counts.add(view.layout.cells[cell].content);
         mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &mut busy);
     }
 
-    (num_harvests, busy.into_boxed_slice())
+    (counts, busy.into_boxed_slice())
 }
 
 fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
@@ -162,10 +164,4 @@ fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) 
     }
 
     flow_distance_from_base.into_boxed_slice()
-}
-
-fn calculate_collection_rate(total_ants: i32, total_distance: i32, num_harvests: i32) -> i32 {
-    if total_distance <= 0 { return 0 }
-    let per_cell = total_ants / total_distance; // intentional integer division since ants can't be split
-    num_harvests * per_cell
 }

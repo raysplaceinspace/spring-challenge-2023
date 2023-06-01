@@ -10,6 +10,7 @@ mod pathing;
 mod planning;
 mod simulation;
 mod solving;
+mod valuation;
 mod view;
 
 use agent::Agent;
