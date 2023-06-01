@@ -44,6 +44,8 @@ impl NearbyPathMap {
     }
 
     pub fn insert(&mut self, cell: usize, layout: &Layout) {
+        if self.distance_to_nearest[cell] <= 0 { return } // Already present at this cell
+
         let mut queue = VecDeque::new();
         self.distance_to_nearest[cell] = 0;
         queue.push_back(cell);
