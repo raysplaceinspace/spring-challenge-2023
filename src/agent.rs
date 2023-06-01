@@ -47,6 +47,7 @@ impl Agent {
         let mut num_improvements = 0;
 
         let mut scorer = QuantileEstimator::new();
+        scorer.insert(best.score);
 
         while start.elapsed().as_millis() < SEARCH_MS {
             let walk_power = WALK_MIN_POWER + WALK_POWER_PER_ITERATION * num_evaluated as f32;
