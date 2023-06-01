@@ -93,17 +93,16 @@ fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32
 
     let mut counts = NumHarvests::new();
     for cell in 0..num_cells {
-        if state.resources[cell] <= 0 { continue } // nothing to harvest here
-
-        match flow_distance_from_base[cell] {
-            0 => {
-                // this is the base - always mark these as busy so we have starting points to extend from
-                busy[cell] = true;
-                continue;
-            },
-            i32::MAX => continue, // not harvesting this cell - not busy
-            _ => (), // normal cell
+        let distance_to_base = flow_distance_from_base[cell];
+        if distance_to_base == 0 {
+            // this is the base - always mark these as busy so we have starting points to extend from
+            busy[cell] = true;
+            continue;
+        } else if distance_to_base == i32::MAX {
+            // this cell is not connected to the base - don't harvest here
+            continue;
         }
+        if state.resources[cell] <= 0 { continue } // nothing to harvest here
 
         counts = counts.add(view.layout.cells[cell].content);
         mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &mut busy);
