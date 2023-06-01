@@ -27,7 +27,7 @@ impl Display for Milestone {
 }
 
 pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Commands {
-    let evaluator = ValuationCalculator::new(player, view, state);
+    let evaluator = ValuationCalculator::new(player, state);
     let mut counts = NumHarvests::new();
 
     let mut targets = Vec::new();

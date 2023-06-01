@@ -20,11 +20,16 @@ pub struct ValuationCalculator {
     value_per_egg: f32,
 }
 impl ValuationCalculator {
-    pub fn new(player: usize, view: &View, state: &State) -> Self {
+    pub fn new(player: usize, state: &State) -> Self {
         Self {
             total_ants: state.num_ants[player].iter().cloned().sum(),
-            value_per_egg: calculate_egg_value(view, state),
+            value_per_egg: 1.0,
         }
+    }
+
+    pub fn with_egg_decay(mut self, view: &View, state: &State) -> Self {
+        self.value_per_egg = calculate_egg_value(view, state);
+        self
     }
 
     pub fn calculate(&self, counts: &NumHarvests, distance: i32) -> f32 {

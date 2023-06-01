@@ -43,7 +43,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let mut beacon_mesh = NearbyPathMap::generate(&view.layout, |cell| busy[cell]);
 
     // Extend to collect nearby crystals
-    let evaluator = ValuationCalculator::new(player, view, state);
+    let evaluator = ValuationCalculator::new(player, state).with_egg_decay(view, state);
     let mut countermoves: FnvHashSet<usize> =
         (0..num_cells).filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0).collect();
     let mut targets = Vec::new();
