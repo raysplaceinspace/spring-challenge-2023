@@ -7,41 +7,75 @@ use super::view::*;
 /// This creates an additional layer on top of PathMap where if there is a tie between two possible paths,
 /// the path closer to the existing ants is chosen.
 pub struct NearbyPathMap {
-    distance_to_nearest_ant: Box<[i32]>,
+    distance_to_nearest: Box<[i32]>,
 }
 impl NearbyPathMap {
-    pub fn generate(player: usize, view: &View, state: &State) -> Self {
-        let num_cells = view.layout.cells.len();
-        let mut distance_to_nearest_ant = Vec::new();
-        distance_to_nearest_ant.resize(num_cells, i32::MAX);
+    pub fn generate(layout: &Layout, is_present: impl Fn(usize) -> bool) -> Self {
+        let num_cells = layout.cells.len();
+        let mut distance_to_nearest = Vec::new();
+        distance_to_nearest.resize(num_cells, i32::MAX);
 
         let mut queue = VecDeque::new();
         for cell in 0..num_cells {
-            if state.num_ants[player][cell] > 0 {
-                distance_to_nearest_ant[cell] = 0;
+            if is_present(cell) {
+                distance_to_nearest[cell] = 0;
                 queue.push_back(cell);
             }
         }
 
         while let Some(current) = queue.pop_front() {
-            let neighbor_distance = distance_to_nearest_ant[current] + 1;
-            for &n in view.layout.cells[current].neighbors.iter() {
-                if neighbor_distance < distance_to_nearest_ant[n] {
-                    distance_to_nearest_ant[n] = neighbor_distance;
+            let neighbor_distance = distance_to_nearest[current] + 1;
+            for &n in layout.cells[current].neighbors.iter() {
+                if neighbor_distance < distance_to_nearest[n] {
+                    distance_to_nearest[n] = neighbor_distance;
                     queue.push_back(n);
                 }
             }
         }
 
         Self {
-            distance_to_nearest_ant: distance_to_nearest_ant.into_boxed_slice(),
+            distance_to_nearest: distance_to_nearest.into_boxed_slice(),
         }
+
+    }
+
+    pub fn near_my_ants(player: usize, view: &View, state: &State) -> Self {
+        Self::generate(&view.layout, |cell| state.num_ants[player][cell] > 0)
+    }
+
+    pub fn insert(&mut self, cell: usize, layout: &Layout) {
+        let mut queue = VecDeque::new();
+        self.distance_to_nearest[cell] = 0;
+        queue.push_back(cell);
+
+        while let Some(current) = queue.pop_front() {
+            let neighbor_distance = self.distance_to_nearest[current] + 1;
+            for &n in layout.cells[current].neighbors.iter() {
+                if neighbor_distance < self.distance_to_nearest[n] {
+                    self.distance_to_nearest[n] = neighbor_distance;
+                    queue.push_back(n);
+                }
+            }
+        }
+    }
+
+    pub fn nearest(&self, target: usize, layout: &Layout) -> usize {
+        let mut current = target;
+        loop {
+            let distance = self.distance_to_nearest[current];
+            if distance <= 0 { return current }
+            current = layout.cells[current].neighbors.iter().min_by_key(|&&n| self.distance_to_nearest[n]).cloned().expect("missing neighbors");
+        }
+    }
+
+    pub fn distance_to(&self, cell: usize) -> i32 {
+        self.distance_to_nearest[cell]
     }
 
     pub fn step_towards(&self, source: usize, sink: usize, layout: &Layout, paths: &PathMap) -> Option<usize> {
         let distances_to_sink = &paths.sources[sink].distances; // The distance map is symmetrical, so can use the sink as a source
         let best = layout.cells[source].neighbors.iter().min_by_key(|&&n| {
-            (distances_to_sink[n], self.distance_to_nearest_ant[n])
+            (distances_to_sink[n], self.distance_to_nearest[n])
         }).cloned();
         best
     }

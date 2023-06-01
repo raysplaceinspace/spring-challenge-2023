@@ -36,7 +36,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         beacons.insert(base);
     }
 
-    let nearby = NearbyPathMap::generate(player, view, state);
+    let nearby = NearbyPathMap::near_my_ants(player, view, state);
     for milestone in plan.iter().skip_while(|m| m.is_complete(&state)) {
         let initial_distance = beacons.len() as i32;
         let initial_collection_rate = evaluator.calculate(&counts, initial_distance);

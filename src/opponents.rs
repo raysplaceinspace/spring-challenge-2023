@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::fmt::Display;
 
-use super::fnv::{FnvHashMap,FnvHashSet};
+use super::fnv::FnvHashSet;
 use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
@@ -31,52 +31,32 @@ impl Display for Countermoves {
     }
 }
 
-#[derive(Clone,Copy)]
-struct Link {
-    pub source: usize,
-    pub distance: i32,
-}
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
     let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
-    let mut beacons = FnvHashSet::default();
-
-    // Always begin the calculation with ants on the bases so we have somewhere to extend from
-    for &base in view.layout.bases[player].iter() {
-        beacons.insert(base);
-    }
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
     let (mut counts, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
-    for cell in 0..num_cells {
-        if busy[cell] {
-            beacons.insert(cell);
-        }
-    }
+    let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
+    let mut beacon_mesh = NearbyPathMap::generate(&view.layout, |cell| busy[cell]);
 
     // Extend to collect nearby crystals
     let evaluator = ValuationCalculator::new(player, view, state);
-    let mut countermoves: FnvHashMap<usize,Link> =
-        (0..num_cells)
-        .filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0)
-        .map(|target| {
-            let closest = beacons.iter().map(|&source| {
-                Link { source, distance: view.paths.distance_between(source, target) }
-            }).min_by_key(|countermove| countermove.distance).expect("no beacons");
-            (target,closest)
-        }).collect();
+    let mut countermoves: FnvHashSet<usize> =
+        (0..num_cells).filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0).collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
-        let (target, Link { source, distance }, new_counts) =
+        let (target, distance, new_counts) =
             countermoves.iter()
-            .map(|(&target,&link)| {
+            .map(|&target| {
+                let distance = beacon_mesh.distance_to(target);
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
-                (target, link, new_counts)
+                (target, distance, new_counts)
             })
-            .max_by_key(|(_,link,new_counts)| ValueOrd::new(evaluator.calculate(&new_counts, link.distance)))
+            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate(&new_counts, *distance)))
             .expect("no countermoves");
 
         let initial_distance = beacons.len() as i32;
@@ -91,17 +71,11 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         countermoves.remove(&target);
         counts = new_counts;
 
-        let nearby = nearby.get_or_insert_with(|| NearbyPathMap::generate(player, view, state));
+        let source = beacon_mesh.nearest(target, &view.layout);
+        let nearby = nearby.get_or_insert_with(|| NearbyPathMap::near_my_ants(player, view, state));
         for beacon in nearby.calculate_path(source, target, &view.layout, &view.paths) {
             beacons.insert(beacon);
-
-            // New beacons may reduce the distance to the countermoves
-            for (&target, link) in countermoves.iter_mut() {
-                let distance = view.paths.distance_between(beacon, target);
-                if distance < link.distance {
-                    *link = Link { source: beacon, distance };
-                }
-            }
+            beacon_mesh.insert(beacon, &view.layout);
         }
     }
 
@@ -120,7 +94,16 @@ fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32
     let mut counts = NumHarvests::new();
     for cell in 0..num_cells {
         if state.resources[cell] <= 0 { continue } // nothing to harvest here
-        if flow_distance_from_base[cell] == i32::MAX { continue } // not harvesting this cell
+
+        match flow_distance_from_base[cell] {
+            0 => {
+                // this is the base - always mark these as busy so we have starting points to extend from
+                busy[cell] = true;
+                continue;
+            },
+            i32::MAX => continue, // not harvesting this cell - not busy
+            _ => (), // normal cell
+        }
 
         counts = counts.add(view.layout.cells[cell].content);
         mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &mut busy);
