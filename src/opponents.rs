@@ -40,15 +40,15 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
     let (mut counts, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
     let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
-    let mut beacon_mesh = NearbyPathMap::generate(&view.layout, |cell| busy[cell]);
+    let mut beacon_mesh: Option<NearbyPathMap> = None;
 
     // Extend to collect nearby crystals
     let evaluator = ValuationCalculator::new(player, state).with_egg_decay(view, state);
-    let mut countermoves: FnvHashSet<usize> =
-        (0..num_cells).filter(|&cell| state.resources[cell] > 0 && state.num_ants[player][cell] <= 0).collect();
+    let mut countermoves: FnvHashSet<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0 && !busy[cell]).collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
+        let beacon_mesh = beacon_mesh.get_or_insert_with(|| NearbyPathMap::generate(&view.layout, |cell| busy[cell]));
         let (target, distance, new_counts) =
             countermoves.iter()
             .map(|&target| {
