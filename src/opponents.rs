@@ -73,10 +73,9 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
         let source = beacon_mesh.nearest(target, &view.layout);
         let nearby = nearby.get_or_insert_with(|| NearbyPathMap::near_my_ants(player, view, state));
-        for beacon in nearby.calculate_path(source, target, &view.layout, &view.paths) {
-            beacons.insert(beacon);
-            beacon_mesh.insert(beacon, &view.layout);
-        }
+        let path: Vec<usize> = nearby.calculate_path(source, target, &view.layout, &view.paths).collect();
+        beacons.extend(path.iter().cloned());
+        beacon_mesh.extend(path.into_iter(), &view.layout);
     }
 
     Countermoves {

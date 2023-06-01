@@ -15,40 +15,26 @@ impl NearbyPathMap {
         let mut distance_to_nearest = Vec::new();
         distance_to_nearest.resize(num_cells, i32::MAX);
 
-        let mut queue = VecDeque::new();
-        for cell in 0..num_cells {
-            if is_present(cell) {
-                distance_to_nearest[cell] = 0;
-                queue.push_back(cell);
-            }
-        }
-
-        while let Some(current) = queue.pop_front() {
-            let neighbor_distance = distance_to_nearest[current] + 1;
-            for &n in layout.cells[current].neighbors.iter() {
-                if neighbor_distance < distance_to_nearest[n] {
-                    distance_to_nearest[n] = neighbor_distance;
-                    queue.push_back(n);
-                }
-            }
-        }
-
-        Self {
+        let mut nearby = Self {
             distance_to_nearest: distance_to_nearest.into_boxed_slice(),
-        }
+        };
 
+        nearby.extend((0..num_cells).filter(|&cell| is_present(cell)), layout);
+        nearby
     }
 
     pub fn near_my_ants(player: usize, view: &View, state: &State) -> Self {
         Self::generate(&view.layout, |cell| state.num_ants[player][cell] > 0)
     }
 
-    pub fn insert(&mut self, cell: usize, layout: &Layout) {
-        if self.distance_to_nearest[cell] <= 0 { return } // Already present at this cell
-
+    pub fn extend(&mut self, cells: impl Iterator<Item=usize>, layout: &Layout) {
         let mut queue = VecDeque::new();
-        self.distance_to_nearest[cell] = 0;
-        queue.push_back(cell);
+        for cell in cells {
+            if self.distance_to_nearest[cell] > 0 {
+                self.distance_to_nearest[cell] = 0;
+                queue.push_back(cell);
+            }
+        }
 
         while let Some(current) = queue.pop_front() {
             let neighbor_distance = self.distance_to_nearest[current] + 1;
