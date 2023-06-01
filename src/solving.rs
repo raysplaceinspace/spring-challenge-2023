@@ -4,7 +4,7 @@ use super::planning::Milestone;
 use super::view::*;
 
 const INITIAL_QUANTILE: f32 = 0.5;
-const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.75;
+const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.5;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
 const LEARNING_RATE: f32 = 0.01;

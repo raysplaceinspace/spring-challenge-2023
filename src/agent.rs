@@ -13,7 +13,7 @@ use super::solving::{QuantileEstimator,PheromoneMatrix};
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
 
-const WALK_MIN_POWER: f32 = 1.0;
+const WALK_MIN_POWER: f32 = 2.0;
 const WALK_POWER_PER_ITERATION: f32 = 0.01;
 
 pub struct Agent {
