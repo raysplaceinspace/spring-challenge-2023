@@ -5,6 +5,7 @@ use super::fnv::{FnvHashMap,FnvHashSet};
 use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
+use super::pathing::NearbyPathMap;
 use super::valuation::{ValuationCalculator,NumHarvests};
 
 pub struct Countermoves {
@@ -67,6 +68,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
             (target,closest)
         }).collect();
     let mut targets = Vec::new();
+    let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         let (&target, &Link { source, distance }) =
             countermoves.iter()
@@ -86,7 +88,8 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         countermoves.remove(&target);
         counts = new_counts;
 
-        for beacon in view.paths.calculate_path(source, target, &view.layout) {
+        let nearby = nearby.get_or_insert_with(|| NearbyPathMap::generate(player, view, state));
+        for beacon in nearby.calculate_path(source, target, &view.layout, &view.paths) {
             beacons.insert(beacon);
 
             // New beacons may reduce the distance to the countermoves

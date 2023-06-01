@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use super::movement;
 use super::valuation::{ValuationCalculator,NumHarvests};
+use super::pathing::NearbyPathMap;
 use super::view::*;
 
 #[derive(Clone)]
@@ -35,6 +36,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         beacons.insert(base);
     }
 
+    let nearby = NearbyPathMap::generate(player, view, state);
     for milestone in plan.iter().skip_while(|m| m.is_complete(&state)) {
         let initial_distance = beacons.len() as i32;
         let initial_collection_rate = evaluator.calculate(&counts, initial_distance);
@@ -49,7 +51,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
             if new_collection_rate > initial_collection_rate {
-                for cell in view.paths.calculate_path(source, target, &view.layout) {
+                for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
                     beacons.insert(cell);
                 }
                 targets.push(target);
