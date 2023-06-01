@@ -54,17 +54,17 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
     (payoff, endgame)
 }
 
-fn discount(payoff: f32, age: u32) -> f32 {
-    payoff * DECAY_RATE.powi(age as i32)
+fn discount(age: u32) -> f32 {
+    DECAY_RATE.powi(age as i32)
 }
 
 fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {
     let mined = num_crystals - previous_crystals;
-    evaluate_player(player) * discount(mined as f32, age)
+    mined as f32 * evaluate_player(player) * discount(age)
 }
 
 fn evaluate_win(player: usize, age: u32) -> f32 {
-    evaluate_player(player) * discount(WIN_PAYOFF, age)
+    WIN_PAYOFF * evaluate_player(player) * discount(age)
 }
 
 fn evaluate_player(player: usize) -> f32 {
