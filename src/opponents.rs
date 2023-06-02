@@ -46,7 +46,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let evaluator = HarvestEvaluator::new(player, view, state);
     let mut countermoves: FnvHashSet<usize> =
         (0..num_cells)
-        .filter(|&cell| !busy[cell] && state.resources[cell] > 0)
+        .filter(|&cell| !busy[cell] && evaluator.is_worth_harvesting(cell, player, view, state))
         .collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
@@ -58,7 +58,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
             .map(|&target| {
                 let distance = beacon_mesh.distance_to(target);
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
-                let new_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, initial_spread + distance);
+                let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, initial_spread + distance);
                 (target, distance, new_counts, new_collection_rate)
             })
             .max_by_key(|(_,distance,_,new_collection_rate)| (ValueOrd::new(*new_collection_rate), -*distance))
@@ -67,8 +67,8 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         let new_spread = initial_spread + distance;
         if new_spread > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&counts, initial_spread);
-        if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
+        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
+        if new_collection_rate <= initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
         countermoves.remove(&target);
@@ -138,7 +138,6 @@ fn calculate_flow_distance_from_base(player: usize, view: &View, state: &State) 
 
     let mut queue = VecDeque::new();
     for &base in view.layout.bases[player].iter() {
-        if state.num_ants[player][base] <= 0 { continue }
         flow_distance_from_base[base] = 0;
         queue.push_back(base);
     }
