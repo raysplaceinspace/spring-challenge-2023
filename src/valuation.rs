@@ -72,13 +72,13 @@ impl HarvestEvaluator {
             Some(Content::Eggs) => {
                 let base = view.closest_bases[player][cell];
                 let distance_from_base = view.paths.distance_between(base, cell);
-                self.is_worth_harvesting_eggs(available, distance_from_base)
+                self.is_worth_harvesting_eggs(distance_from_base)
             },
         }
     }
 
-    fn is_worth_harvesting_eggs(&self, available: i32, distance_from_base: i32) -> bool {
-        let harvest = (self.total_ants / distance_from_base).min(available);
+    fn is_worth_harvesting_eggs(&self, distance_from_base: i32) -> bool {
+        let harvest = self.total_ants / distance_from_base; // Don't consider number of available eggs - just assume we can reach multiple identical cells like this and harvest the maximum number of eggs per tick
         if harvest <= 0 { return false }
 
         if self.ticks_to_harvest_remaining_crystals == i32::MAX { return true } // Not enough eggs to win, so must harvest eggs
