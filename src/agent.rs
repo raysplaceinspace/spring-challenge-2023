@@ -9,6 +9,7 @@ use super::evaluation::{self,Endgame};
 use super::opponents;
 use super::planning::{self,*};
 use super::solving::{QuantileEstimator,PheromoneMatrix};
+use super::valuation::HarvestEvaluator;
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
@@ -49,10 +50,13 @@ impl Agent {
         let mut scorer = QuantileEstimator::new();
         scorer.insert(best.score);
 
+        let harvester = HarvestEvaluator::new(ME, view, state);
         while start.elapsed().as_millis() < SEARCH_MS {
             let walk_power = WALK_MIN_POWER + WALK_POWER_PER_ITERATION * num_evaluated as f32;
 
-            let (plan, walks) = self.pheromones.generate(walk_power, &mut self.rng, |cell| state.resources[cell] > 0);
+            let (plan, walks) = self.pheromones.generate(walk_power, &mut self.rng, |cell| {
+                harvester.is_worth_harvesting(cell, ME, view, state)
+            });
             let candidate = Candidate::evaluate(plan, view, state);
             num_evaluated += 1;
 

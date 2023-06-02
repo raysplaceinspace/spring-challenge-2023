@@ -6,7 +6,7 @@ use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
 use super::pathing::NearbyPathMap;
-use super::valuation::{ValueOrd,ValuationCalculator,NumHarvests};
+use super::valuation::{NumHarvests,HarvestEvaluator};
 
 pub struct Countermoves {
     pub assignments: Assignments,
@@ -43,8 +43,11 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let mut beacon_mesh: Option<NearbyPathMap> = None;
 
     // Extend to collect nearby crystals
-    let evaluator = ValuationCalculator::new(player, state).with_egg_decay(view, state);
-    let mut countermoves: FnvHashSet<usize> = (0..num_cells).filter(|&cell| state.resources[cell] > 0 && !busy[cell]).collect();
+    let evaluator = HarvestEvaluator::new(player, view, state);
+    let mut countermoves: FnvHashSet<usize> =
+        (0..num_cells)
+        .filter(|&cell| !busy[cell] && evaluator.is_worth_harvesting(cell, player, view, state))
+        .collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
@@ -56,15 +59,15 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
                 (target, distance, new_counts)
             })
-            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate(&new_counts, *distance)))
+            .max_by_key(|(_,distance,new_counts)| evaluator.calculate_harvest_rate(&new_counts, *distance))
             .expect("no countermoves");
 
         let initial_distance = beacons.len() as i32;
         let new_distance = initial_distance + distance;
         if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = evaluator.calculate(&counts, initial_distance);
-        let new_collection_rate = evaluator.calculate(&new_counts, new_distance);
+        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_distance);
+        let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_distance);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);

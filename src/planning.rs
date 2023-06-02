@@ -1,9 +1,10 @@
 use core::panic;
+
 use super::fnv::FnvHashSet;
 use std::fmt::Display;
 
 use super::movement;
-use super::valuation::{ValuationCalculator,NumHarvests};
+use super::valuation::{NumHarvests,HarvestEvaluator};
 use super::pathing::NearbyPathMap;
 use super::view::*;
 
@@ -27,7 +28,7 @@ impl Display for Milestone {
 }
 
 pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Commands {
-    let evaluator = ValuationCalculator::new(player, state);
+    let evaluator = HarvestEvaluator::new(player, view, state);
     let mut counts = NumHarvests::new();
 
     let mut targets = Vec::new();
@@ -37,19 +38,19 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     }
 
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
-    for milestone in plan.iter().filter(|m| !m.is_complete(&state)) {
-        let initial_distance = beacons.len() as i32;
-        let initial_collection_rate = evaluator.calculate(&counts, initial_distance);
-
+    for milestone in plan.iter() {
         let target = milestone.cell;
+        if !evaluator.is_worth_harvesting(target, player, view, state) { continue }
 
         if let Some((distance, source)) = beacons.iter().map(|&source| (view.paths.distance_between(source, target),source)).min() {
             let content = view.layout.cells[target].content;
             let new_counts = counts.clone().add(content);
 
-            let new_collection_rate = evaluator.calculate(&new_counts, initial_distance + distance);
+            let initial_distance = beacons.len() as i32;
+            let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, initial_distance + distance);
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
+            let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_distance);
             if new_collection_rate > initial_collection_rate {
                 for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
                     beacons.insert(cell);

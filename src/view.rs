@@ -6,6 +6,8 @@ pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
 pub type ResourcesPerCell = Box<[i32]>;
 pub type ClosestBases = Box<[usize]>;
 pub type ClosestBasesPerPlayer = [ClosestBases; NUM_PLAYERS];
+pub type ClosestResources = Box<[usize]>;
+pub type ClosestResourcesPerPlayer = [ClosestResources; NUM_PLAYERS];
 
 /// A Layout plus some pre-calculated values derived from the Layout
 pub struct View {
@@ -15,19 +17,38 @@ pub struct View {
 
     /// player -> cell -> closest base
     pub closest_bases: ClosestBasesPerPlayer,
+
+    /// player -> cell containing resources, sorted nearest to farthest
+    pub closest_crystals: ClosestResourcesPerPlayer,
+    pub closest_eggs: ClosestResourcesPerPlayer,
 }
 impl View {
     pub fn new(layout: Layout) -> Self {
         let paths = PathMap::generate(&layout);
-        let initial_crystals = layout.cells.iter().filter(|cell| cell.content == Some(Content::Crystals)).map(|cell| cell.initial_resources).sum();
-        let closest_bases = [
-            Self::find_closest_bases(ME, &layout, &paths),
-            Self::find_closest_bases(ENEMY, &layout, &paths),
-        ];
+
         Self {
+            initial_crystals:
+                layout.cells.iter()
+                .filter(|cell| cell.content == Some(Content::Crystals))
+                .map(|cell| cell.initial_resources)
+                .sum(),
+
+            closest_bases: [
+                Self::find_closest_bases(ME, &layout, &paths),
+                Self::find_closest_bases(ENEMY, &layout, &paths),
+            ],
+
+            closest_crystals: [
+                Self::find_closest_resources(Content::Crystals, ME, &layout, &paths),
+                Self::find_closest_resources(Content::Crystals, ENEMY, &layout, &paths),
+            ],
+
+            closest_eggs: [
+                Self::find_closest_resources(Content::Eggs, ME, &layout, &paths),
+                Self::find_closest_resources(Content::Eggs, ENEMY, &layout, &paths),
+            ],
+
             paths,
-            initial_crystals,
-            closest_bases,
             layout,
         }
     }
@@ -39,6 +60,16 @@ impl View {
             }).expect("bases missing")
         }).collect();
         closest_bases.into_boxed_slice()
+    }
+
+    fn find_closest_resources(content: Content, player: usize, layout: &Layout, paths: &PathMap) -> ClosestResources {
+        let mut closest_resources: Vec<usize> = (0..layout.cells.len()).filter(|&cell| layout.cells[cell].content == Some(content)).collect();
+        closest_resources.sort_by_cached_key(|&resource| {
+            layout.bases[player].iter().map(|&base| {
+                paths.distance_between(base, resource)
+            }).min().expect("bases missing")
+        });
+        closest_resources.into_boxed_slice()
     }
 }
 
