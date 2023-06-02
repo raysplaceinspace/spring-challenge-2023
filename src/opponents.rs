@@ -46,7 +46,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let evaluator = HarvestEvaluator::new(player, view, state);
     let mut countermoves: FnvHashSet<usize> =
         (0..num_cells)
-        .filter(|&cell| !busy[cell] && evaluator.is_worth_harvesting(cell, player, view, state))
+        .filter(|&cell| !busy[cell] && state.resources[cell] > 0)
         .collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
@@ -60,14 +60,14 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
                 (target, distance, new_counts)
             })
-            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate(&new_counts, initial_spread + *distance)))
+            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, initial_spread + *distance)))
             .expect("no countermoves");
 
         let new_spread = initial_spread + distance;
         if new_spread > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
-        let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
+        let initial_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&counts, initial_spread);
+        let new_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, new_spread);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
