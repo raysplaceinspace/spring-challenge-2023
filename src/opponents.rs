@@ -38,7 +38,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
-    let (mut counts, busy) = identify_busy_ants(view, state, &flow_distance_from_base);
+    let (mut counts, busy) = identify_busy_ants(player, view, state, &flow_distance_from_base);
     let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
     let mut beacon_mesh: Option<NearbyPathMap> = None;
 
@@ -87,7 +87,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 }
 
-fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32]) -> (NumHarvests,Box<[bool]>) {
+fn identify_busy_ants(player: usize, view: &View, state: &State, flow_distance_from_base: &[i32]) -> (NumHarvests,Box<[bool]>) {
     let num_cells = view.layout.cells.len();
 
     let mut busy = Vec::new();
@@ -107,24 +107,27 @@ fn identify_busy_ants(view: &View, state: &State, flow_distance_from_base: &[i32
         if state.resources[cell] <= 0 { continue } // nothing to harvest here
 
         counts = counts.add(view.layout.cells[cell].content);
-        mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &mut busy);
+        mark_return_path_as_busy(cell, &flow_distance_from_base, &view.layout, &state.num_ants[player], &mut busy);
     }
 
     (counts, busy.into_boxed_slice())
 }
 
-fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, busy: &mut [bool]) {
+fn mark_return_path_as_busy(cell: usize, flow_distance_from_base: &[i32], layout: &Layout, num_ants: &AntsPerCell, busy: &mut [bool]) {
+    if busy[cell] { return }
     busy[cell] = true;
 
     let remaining_distance = flow_distance_from_base[cell];
     if remaining_distance <= 0 { return }
     else if remaining_distance == i32::MAX { return } // there won't be a path back to base from here
 
-    // Flow back to base along the neighbors that are closer to the base
-    for &neighbor in layout.cells[cell].neighbors.iter() {
-        if !busy[neighbor] && flow_distance_from_base[neighbor] < remaining_distance {
-            mark_return_path_as_busy(neighbor, flow_distance_from_base, layout, busy);
-        }
+    // Flow back to base along path with most ants
+    let best =
+        layout.cells[cell].neighbors.iter()
+        .filter(|&&n| flow_distance_from_base[n] < remaining_distance)
+        .max_by_key(|&&n| num_ants[n]).cloned();
+    if let Some(best) = best {
+        mark_return_path_as_busy(best, flow_distance_from_base, layout, num_ants, busy);
     }
 }
 
