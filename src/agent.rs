@@ -9,6 +9,7 @@ use super::evaluation::{self,Endgame};
 use super::opponents;
 use super::planning::{self,*};
 use super::solving::{QuantileEstimator,PheromoneMatrix};
+use super::valuation::HarvestEvaluator;
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
@@ -86,6 +87,14 @@ impl Agent {
         let summary = format!("{} vs {}", commands, countermoves);
         eprintln!("Next: {}", summary);
         actions.push(Action::Message { text: summary });
+
+        let harvests = [
+            HarvestEvaluator::new(ME, view, state),
+            HarvestEvaluator::new(ENEMY, view, state),
+        ];
+        for (player,harvest) in harvests.iter().enumerate() {
+            eprintln!("[{}] Harvest: {:.0} optimistic ticks to win, {:.2} gained from 1 egg", player, harvest.ticks_to_harvest_remaining_crystals(), harvest.calculate_ticks_saved_harvesting_eggs(1));
+        }
 
         self.previous_plan = Some(best.plan);
         actions

@@ -60,11 +60,7 @@ impl HarvestEvaluator {
             let base = view.closest_bases[player][cell];
             let distance = view.paths.distance_between(base, cell);
 
-            let harvest_per_tick = total_ants / distance;
-            if harvest_per_tick <= 0 {
-                return Self { total_ants, remaining_ticks, ticks_to_harvest_remaining_crystals: i32::MAX };
-            }
-
+            let harvest_per_tick = (total_ants / distance).max(1); // If too far away to harvest, just pretend we can harvest it slowly - the math will work out about the same and we don't have to worry about infinities
             let ticks_to_harvest = (harvest as f32 / harvest_per_tick as f32).ceil() as i32;
 
             ticks_to_harvest_remaining_crystals += ticks_to_harvest;
@@ -99,13 +95,17 @@ impl HarvestEvaluator {
         let num_eggs_harvested = harvest_per_cell * counts.num_egg_harvests;
         let ticks_saved_by_harvesting_eggs = self.calculate_ticks_saved_harvesting_eggs(num_eggs_harvested);
 
-        let remaining_ticks_proportion = self.remaining_ticks as f32 / MAX_TICKS as f32;
-        let value_per_egg = (ticks_saved_by_harvesting_eggs / 1.0).min(remaining_ticks_proportion);
+        let remaining_proportion = self.remaining_ticks as f32 / MAX_TICKS as f32;
+        let value_per_egg = (ticks_saved_by_harvesting_eggs / 1.0).min(1.0).min(remaining_proportion); // Limit to 1.0 - don't let an egg be worth more than a crystal
 
         num_crystals_harvested as f32 + num_eggs_harvested as f32 * value_per_egg
     }
 
-    fn calculate_ticks_saved_harvesting_eggs(&self, num_eggs: i32) -> f32 {
-        self.ticks_to_harvest_remaining_crystals as f32 * num_eggs as f32 / (self.total_ants + num_eggs) as f32
+    pub fn calculate_ticks_saved_harvesting_eggs(&self, num_eggs: i32) -> f32 {
+        self.ticks_to_harvest_remaining_crystals as f32 * (num_eggs as f32 / (self.total_ants + num_eggs) as f32)
+    }
+
+    pub fn ticks_to_harvest_remaining_crystals(&self) -> i32 {
+        self.ticks_to_harvest_remaining_crystals
     }
 }
