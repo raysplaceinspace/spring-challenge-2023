@@ -6,7 +6,7 @@ use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
 use super::pathing::NearbyPathMap;
-use super::valuation::{NumHarvests,HarvestEvaluator};
+use super::valuation::{NumHarvests,HarvestEvaluator,ValueOrd};
 
 pub struct Countermoves {
     pub assignments: Assignments,
@@ -59,7 +59,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
                 (target, distance, new_counts)
             })
-            .max_by_key(|(_,distance,new_counts)| evaluator.calculate_harvest_rate(&new_counts, *distance))
+            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate(&new_counts, *distance)))
             .expect("no countermoves");
 
         let initial_distance = beacons.len() as i32;

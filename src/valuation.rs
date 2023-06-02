@@ -1,16 +1,34 @@
 use super::inputs::{Content,MAX_TICKS};
 use super::view::*;
 
+#[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
+pub struct ValueOrd(pub f32);
+impl ValueOrd {
+    pub fn new(value: f32) -> Self {
+        Self(value)
+    }
+}
+impl Eq for ValueOrd {}
+impl Ord for ValueOrd {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).expect("unexpected NaN for value")
+    }
+}
+
 #[derive(Clone,Copy)]
-pub struct NumHarvests(i32);
+pub struct NumHarvests {
+    pub num_crystal_harvests: i32,
+    pub num_egg_harvests: i32,
+}
 impl NumHarvests {
     pub fn new() -> Self {
-        Self(0)
+        Self { num_crystal_harvests: 0, num_egg_harvests: 0 }
     }
 
     pub fn add(mut self, content: Option<Content>) -> Self {
         match content {
-            Some(_) => self.0 += 1,
+            Some(Content::Crystals) => self.num_crystal_harvests += 1,
+            Some(Content::Eggs) => self.num_egg_harvests += 1,
             None => (),
         };
         self
@@ -92,10 +110,10 @@ impl HarvestEvaluator {
         new_ticks < old_ticks
     }
 
-    pub fn calculate_harvest_rate(&self, counts: &NumHarvests, distance: i32) -> i32 {
-        if distance <= 0 { return 0 }
+    pub fn calculate_harvest_rate(&self, counts: &NumHarvests, distance: i32) -> f32 {
+        if distance <= 0 { return 0.0 }
         let per_cell = self.total_ants / distance; // intentional integer division since ants can't be split
-        let num_harvests = counts.0;
-        num_harvests * per_cell
+        let num_harvests = counts.num_crystal_harvests + counts.num_egg_harvests;
+        (num_harvests * per_cell) as f32
     }
 }
