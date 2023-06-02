@@ -19,7 +19,7 @@ impl NumHarvests {
 
 pub struct HarvestEvaluator {
     total_ants: i32,
-    ticks_to_harvest_remaining_crystals: f32,
+    ticks_to_harvest_remaining_crystals: i32,
 }
 impl HarvestEvaluator {
     pub fn new(player: usize, view: &View, state: &State) -> Self {
@@ -28,10 +28,10 @@ impl HarvestEvaluator {
         let crystal_threshold = view.initial_crystals / 2;
         let mut remaining_crystals = (crystal_threshold - state.crystals[player]).max(0);
         if remaining_crystals <= 0 {
-            return Self { total_ants, ticks_to_harvest_remaining_crystals: 0.0 };
+            return Self { total_ants, ticks_to_harvest_remaining_crystals: 0 };
         }
 
-        let mut ticks_to_harvest_remaining_crystals = 0.0;
+        let mut ticks_to_harvest_remaining_crystals = 0;
         for &cell in view.closest_crystals[player].iter() {
             let available = state.resources[cell];
             if available <= 0 { continue }
@@ -42,10 +42,10 @@ impl HarvestEvaluator {
 
             let harvest_per_tick = total_ants / distance;
             if harvest_per_tick <= 0 {
-                return Self { total_ants, ticks_to_harvest_remaining_crystals: f32::INFINITY };
+                return Self { total_ants, ticks_to_harvest_remaining_crystals: i32::MAX };
             }
 
-            let ticks_to_harvest = harvest as f32 / harvest_per_tick as f32;
+            let ticks_to_harvest = (harvest as f32 / harvest_per_tick as f32).ceil() as i32;
 
             ticks_to_harvest_remaining_crystals += ticks_to_harvest;
             remaining_crystals -= harvest;
@@ -54,7 +54,7 @@ impl HarvestEvaluator {
         }
 
         let remaining_ticks = MAX_TICKS.saturating_sub(state.tick);
-        ticks_to_harvest_remaining_crystals = ticks_to_harvest_remaining_crystals.min(remaining_ticks as f32);
+        ticks_to_harvest_remaining_crystals = ticks_to_harvest_remaining_crystals.min(remaining_ticks as i32);
 
         Self {
             total_ants,
@@ -81,12 +81,12 @@ impl HarvestEvaluator {
         let harvest = (self.total_ants / distance_from_base).min(available);
         if harvest <= 0 { return false }
 
-        if self.ticks_to_harvest_remaining_crystals.is_infinite() { return true }
+        if self.ticks_to_harvest_remaining_crystals == i32::MAX { return true } // Not enough eggs to win, so must harvest eggs
 
         // First tick of harvesting eggs is the most productive (highest increase in ratio of number of new ants to existing ants),
         // so if it doesn't break even, none of the remaining ticks will either.
         let new_ants = self.total_ants + harvest;
-        let new_ticks = 1.0 + self.ticks_to_harvest_remaining_crystals * (self.total_ants as f32 / new_ants as f32); // +1 because we are delaying harvesting crystals by 1 tick to harvest eggs instead
+        let new_ticks = 1 + (self.ticks_to_harvest_remaining_crystals as f32 * (self.total_ants as f32 / new_ants as f32)).ceil() as i32; // +1 because we are delaying harvesting crystals by 1 tick to harvest eggs instead
         let old_ticks = self.ticks_to_harvest_remaining_crystals;
 
         new_ticks < old_ticks
