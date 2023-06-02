@@ -97,11 +97,15 @@ impl HarvestEvaluator {
         let num_crystals_harvested = harvest_per_cell * counts.num_crystal_harvests;
 
         let num_eggs_harvested = harvest_per_cell * counts.num_egg_harvests;
-        let ticks_saved_by_harvesting_eggs = self.ticks_to_harvest_remaining_crystals as f32 * num_eggs_harvested as f32 / (self.total_ants + num_eggs_harvested) as f32;
+        let ticks_saved_by_harvesting_eggs = self.calculate_ticks_saved_harvesting_eggs(num_eggs_harvested);
 
         let remaining_ticks_proportion = self.remaining_ticks as f32 / MAX_TICKS as f32;
         let value_per_egg = (ticks_saved_by_harvesting_eggs / 1.0).min(remaining_ticks_proportion);
 
         num_crystals_harvested as f32 + num_eggs_harvested as f32 * value_per_egg
+    }
+
+    fn calculate_ticks_saved_harvesting_eggs(&self, num_eggs: i32) -> f32 {
+        self.ticks_to_harvest_remaining_crystals as f32 * num_eggs as f32 / (self.total_ants + num_eggs) as f32
     }
 }
