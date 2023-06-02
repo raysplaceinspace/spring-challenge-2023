@@ -46,11 +46,11 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
             let content = view.layout.cells[target].content;
             let new_counts = counts.clone().add(content);
 
-            let initial_distance = beacons.len() as i32;
-            let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, initial_distance + distance);
+            let initial_spread = beacons.len() as i32;
+            let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, initial_spread + distance);
             // eprintln!("considered harvesting <{}> (distance {}): {} -> {}", target, distance, initial_collection_rate, new_collection_rate);
 
-            let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_distance);
+            let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
             if new_collection_rate > initial_collection_rate {
                 for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
                     beacons.insert(cell);

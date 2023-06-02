@@ -110,10 +110,13 @@ impl HarvestEvaluator {
         new_ticks < old_ticks
     }
 
-    pub fn calculate_harvest_rate(&self, counts: &NumHarvests, distance: i32) -> f32 {
-        if distance <= 0 { return 0.0 }
-        let per_cell = self.total_ants / distance; // intentional integer division since ants can't be split
-        let num_harvests = counts.num_crystal_harvests + counts.num_egg_harvests;
-        (num_harvests * per_cell) as f32
+    pub fn calculate_harvest_rate(&self, counts: &NumHarvests, spread: i32) -> f32 {
+        if spread <= 0 { return 0.0 }
+        let harvest_per_cell = self.total_ants / spread; // intentional integer division since ants can't be split
+
+        let num_crystals_harvested = harvest_per_cell * counts.num_crystal_harvests;
+        let num_eggs_harvested = harvest_per_cell * counts.num_egg_harvests;
+
+        num_crystals_harvested as f32 + num_eggs_harvested as f32
     }
 }

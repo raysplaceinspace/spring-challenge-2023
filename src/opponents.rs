@@ -51,6 +51,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
+        let initial_spread = beacons.len() as i32;
         let beacon_mesh = beacon_mesh.get_or_insert_with(|| NearbyPathMap::generate(&view.layout, |cell| busy[cell]));
         let (target, distance, new_counts) =
             countermoves.iter()
@@ -59,15 +60,14 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
                 (target, distance, new_counts)
             })
-            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate(&new_counts, *distance)))
+            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate(&new_counts, initial_spread + *distance)))
             .expect("no countermoves");
 
-        let initial_distance = beacons.len() as i32;
-        let new_distance = initial_distance + distance;
-        if new_distance > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
+        let new_spread = initial_spread + distance;
+        if new_spread > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
-        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_distance);
-        let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_distance);
+        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
+        let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
