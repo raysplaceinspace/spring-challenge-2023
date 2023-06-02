@@ -40,7 +40,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
     for milestone in plan.iter() {
         let target = milestone.cell;
-        if !evaluator.is_worth_harvesting(target, player, view, state) { continue }
+        if state.resources[target] <= 0 { continue } // Nothing to harvest here
 
         if let Some((distance, source)) = beacons.iter().map(|&source| (view.paths.distance_between(source, target),source)).min() {
             let content = view.layout.cells[target].content;
