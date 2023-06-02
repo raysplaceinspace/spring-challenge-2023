@@ -53,21 +53,21 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         let initial_spread = beacons.len() as i32;
         let beacon_mesh = beacon_mesh.get_or_insert_with(|| NearbyPathMap::generate(&view.layout, |cell| busy[cell]));
-        let (target, distance, new_counts) =
+        let (target, distance, new_counts, new_collection_rate) =
             countermoves.iter()
             .map(|&target| {
                 let distance = beacon_mesh.distance_to(target);
                 let new_counts = counts.clone().add(view.layout.cells[target].content);
-                (target, distance, new_counts)
+                let new_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, initial_spread + distance);
+                (target, distance, new_counts, new_collection_rate)
             })
-            .max_by_key(|(_,distance,new_counts)| ValueOrd::new(evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, initial_spread + *distance)))
+            .max_by_key(|(_,_,_,new_collection_rate)| ValueOrd::new(*new_collection_rate))
             .expect("no countermoves");
 
         let new_spread = initial_spread + distance;
         if new_spread > total_ants { break } // Not enough ants to reach this target, or any others because this is the shortest one
 
         let initial_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&counts, initial_spread);
-        let new_collection_rate = evaluator.calculate_harvest_rate_discounting_eggs(&new_counts, new_spread);
         if new_collection_rate < initial_collection_rate { break } // This target is not worth the effort
 
         targets.push(target);
