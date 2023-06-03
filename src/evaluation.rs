@@ -3,7 +3,7 @@ use super::inputs::*;
 use super::simulation;
 use super::view::{self,*};
 
-const NUM_TICKS: u32 = 100;
+const NUM_TICKS: u32 = 25;
 const DECAY_RATE: f32 = 0.98;
 const WIN_PAYOFF: f32 = 0.0;
 
@@ -15,7 +15,8 @@ pub struct Endgame {
 }
 
 pub fn rollout(me: usize, plans: [&Vec<Milestone>; NUM_PLAYERS], view: &View, state: &State) -> (f32,Endgame) {
-    let mut payoff = 0.0;
+    let enemy = (me + 1) % NUM_PLAYERS;
+    let mut payoff = (state.crystals[me] - state.crystals[enemy]) as f32;
 
     let mut state = state.clone();
     for age in 0..NUM_TICKS {
@@ -40,6 +41,19 @@ pub fn rollout(me: usize, plans: [&Vec<Milestone>; NUM_PLAYERS], view: &View, st
         }
 
         if state.tick >= MAX_TICKS { break; }
+    }
+
+    let crystals_to_win = view.initial_crystals / 2 - state.crystals.iter().sum::<i32>();
+    if crystals_to_win > 0 {
+        // Apportion final crystals according to number of eggs
+        let total_ants: i32 = state.total_ants.iter().sum();
+        let remaining_crystal_amounts = [
+            crystals_to_win as f32 * (state.total_ants[ME] as f32 / total_ants as f32),
+            crystals_to_win as f32 * (state.total_ants[ENEMY] as f32 / total_ants as f32),
+        ];
+        for player in 0..NUM_PLAYERS {
+            payoff += player_sign(me, player) * remaining_crystal_amounts[player] * discount(MAX_TICKS);
+        }
     }
 
     let endgame = Endgame {

@@ -40,10 +40,10 @@ impl Agent {
         }
 
         let (initial, best, stats) = self.generate_plan_for_player(ADVERSARIAL_MS, ENEMY, view, state);
-        eprintln!("adversary {} -> {}: in {:.0} ms ({}/{} successful iterations)", -initial.score, -best.score, stats.elapsed_ms, stats.num_improvements, stats.num_evaluated);
+        eprintln!("adversary {:.1} -> {:.1}: in {:.0} ms ({}/{} successful iterations)", -initial.score, -best.score, stats.elapsed_ms, stats.num_improvements, stats.num_evaluated);
 
         let (initial, best, stats) = self.generate_plan_for_player(SEARCH_MS, ME, view, state);
-        eprintln!("best {} -> {}: in {:.0} ms ({}/{} successful iterations)", initial.score, best.score, stats.elapsed_ms, stats.num_improvements, stats.num_evaluated);
+        eprintln!("best {:.1} -> {:.1}: in {:.0} ms ({}/{} successful iterations)", initial.score, best.score, stats.elapsed_ms, stats.num_improvements, stats.num_evaluated);
 
         let commands = planning::enact_plan(ME, &best.plan, view, state);
 
