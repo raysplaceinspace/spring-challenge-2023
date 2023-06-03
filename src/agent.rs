@@ -37,13 +37,7 @@ impl Agent {
         let countermoves = opponents::enact_countermoves(ENEMY, view, state);
 
         let mut actions = movement::assignments_to_actions(&commands.assignments);
-        actions.push(Action::Message { text: {
-            if best.endgame.crystals[ME] >= best.endgame.crystals[ENEMY] {
-                "Good game :)".to_string()
-            } else {
-                "Congratulations!".to_string()
-            }
-        }});
+        actions.push(Action::Message { text: format!("{}", stats.num_evaluated) });
 
         eprintln!("{}: found best plan in {:.0} ms ({} iterations)", state.tick, stats.elapsed_ms as f32, stats.num_evaluated);
         eprintln!("Successful: {}/{} generations, {}/{} mutations", stats.num_successful_generations, stats.num_generations, stats.num_successful_mutations, stats.num_mutations);
