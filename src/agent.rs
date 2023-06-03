@@ -92,7 +92,7 @@ impl Agent {
             "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",
             best.endgame.tick,
             best.endgame.crystals[0], best.endgame.crystals[1],
-            best.endgame.num_ants[0], best.endgame.num_ants[1],
+            best.endgame.total_ants[0], best.endgame.total_ants[1],
         );
         eprintln!("Goals: {} vs {}", commands, countermoves);
         eprintln!("Ticks to win: {:.0} vs {:.0}", harvests[0].ticks_to_harvest_remaining_crystals(), harvests[1].ticks_to_harvest_remaining_crystals());

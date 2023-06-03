@@ -47,6 +47,7 @@ fn apply_harvest(view: &View, state: &mut State) {
                         let num_bases_remaining = num_bases - index;
                         let spawn_at_this_base = remaining / num_bases_remaining as i32;
                         state.num_ants[player][base] += spawn_at_this_base;
+                        state.total_ants[player] += spawn_at_this_base;
                         remaining -= spawn_at_this_base;
                     }
                 },

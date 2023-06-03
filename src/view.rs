@@ -95,12 +95,18 @@ impl View {
 pub struct State {
     pub tick: u32,
     pub num_ants: AntsPerCellPerPlayer,
+    pub total_ants: [i32; NUM_PLAYERS],
     pub resources: ResourcesPerCell,
     pub crystals: CrystalsPerPlayer,
 }
 impl State {
     pub fn new(tick: u32, num_ants: AntsPerCellPerPlayer, resources: ResourcesPerCell, harvested: CrystalsPerPlayer) -> Self {
         Self {
+            total_ants: [
+                num_ants[ME].iter().sum(),
+                num_ants[ENEMY].iter().sum(),
+            ],
+
             tick,
             num_ants,
             resources,

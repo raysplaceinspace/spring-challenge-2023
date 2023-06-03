@@ -24,13 +24,11 @@ pub fn spread_ants_across_beacons<'a>(beacons: impl Iterator<Item=usize>, player
     let mut beacons: Vec<usize> = beacons.collect();
     beacons.sort_by_key(|&cell| (view.distance_to_closest_base[player][cell], cell));
 
-    let total_ants: i32 = state.num_ants[player].iter().sum();
-
     let mut assignments = Vec::new();
     assignments.resize(num_cells, 0);
 
     let mut remaining_beacons = beacons.len() as i32;
-    let mut remaining_ants = total_ants;
+    let mut remaining_ants = state.total_ants[player];
     for cell in beacons.into_iter() { // Place ants from closest to farthest beacon because rounding will cause more ants to be placed further away
         if remaining_ants <= 0 { break }
 

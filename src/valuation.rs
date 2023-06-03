@@ -41,7 +41,7 @@ pub struct HarvestEvaluator {
 impl HarvestEvaluator {
     pub fn new(player: usize, state: &State) -> Self {
         Self {
-            total_ants: state.num_ants[player].iter().cloned().sum(),
+            total_ants: state.total_ants[player],
         }
     }
 
@@ -63,7 +63,7 @@ pub struct HarvestAndSpawnEvaluator {
 }
 impl HarvestAndSpawnEvaluator {
     pub fn new(player: usize, view: &View, state: &State) -> Self {
-        let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
+        let total_ants: i32 = state.total_ants[player];
         let remaining_ticks_proportion = MAX_TICKS.saturating_sub(state.tick) as f32 / MAX_TICKS as f32;
 
         let crystal_threshold = view.initial_crystals / 2;

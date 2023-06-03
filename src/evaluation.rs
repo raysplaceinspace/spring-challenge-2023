@@ -12,7 +12,7 @@ const WIN_PAYOFF: f32 = 0.0;
 pub struct Endgame {
     pub tick: u32,
     pub crystals: CrystalsPerPlayer,
-    pub num_ants: [i32; NUM_PLAYERS],
+    pub total_ants: [i32; NUM_PLAYERS],
 }
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
@@ -46,10 +46,7 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
     let endgame = Endgame {
         tick: state.tick,
         crystals: state.crystals,
-        num_ants: [
-            state.num_ants[ME].iter().sum(),
-            state.num_ants[ENEMY].iter().sum(),
-        ],
+        total_ants: state.total_ants,
     };
     (payoff, endgame)
 }

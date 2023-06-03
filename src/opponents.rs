@@ -34,7 +34,7 @@ impl Display for Countermoves {
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
     // Add the countermove as an extension of existing ants
     let num_cells = view.layout.cells.len();
-    let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
+    let total_ants = state.total_ants[player];
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
