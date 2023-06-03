@@ -376,7 +376,7 @@ impl PheromoneMatrix {
                 num_remaining -= 1;
 
                 walk.veins.push(vein);
-                priorities.push(Milestone::new(self.veins[vein]));
+                priorities.push(Milestone::Harvest(self.veins[vein]));
 
             } else {
                 panic!("Failed to select a cell: total={}, cumulative={}, selector={}", total, cumulative, selector)

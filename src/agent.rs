@@ -26,10 +26,7 @@ impl Agent {
 
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
         let initial_plan = match self.previous_plan.take() {
-            Some(mut plan) => {
-                plan.retain(|m| !m.is_complete(state));
-                plan
-            },
+            Some(plan) => Milestone::reap(plan, state),
             None => Vec::new(),
         };
         let (initial, best, stats) = self.solver.solve(SEARCH_MS, initial_plan, view, state, &mut self.rng);

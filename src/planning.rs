@@ -9,21 +9,22 @@ use super::pathing::NearbyPathMap;
 use super::view::*;
 
 #[derive(Clone)]
-pub struct Milestone {
-    pub cell: usize,
+pub enum Milestone {
+    Harvest(usize),
 }
 impl Milestone {
-    pub fn new(cell: usize) -> Self {
-        Self { cell }
-    }
-
-    pub fn is_complete(&self, state: &State) -> bool {
-        state.resources[self.cell] <= 0
+    pub fn reap(mut plan: Vec<Milestone>, state: &State) -> Vec<Milestone> {
+        plan.retain(|milestone| match milestone {
+            Self::Harvest(cell) => state.resources[*cell] > 0,
+        });
+        plan
     }
 }
 impl Display for Milestone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.cell.fmt(f)
+        match self {
+            Self::Harvest(cell) => cell.fmt(f),
+        }
     }
 }
 
@@ -39,37 +40,40 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
 
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
     for milestone in plan.iter() {
-        let target = milestone.cell;
-        if state.resources[target] <= 0 { continue } // Nothing to harvest here
+        match milestone {
+            &Milestone::Harvest(target) => {
+                if state.resources[target] <= 0 { continue } // Nothing to harvest here
 
-        let (distance, source) = beacons.iter().chain(unused_bases.iter()).map(|&beacon| {
-            let distance = view.paths.distance_between(beacon, target);
-            (distance, beacon)
-        }).min().expect("no beacons");
+                let (distance, source) = beacons.iter().chain(unused_bases.iter()).map(|&beacon| {
+                    let distance = view.paths.distance_between(beacon, target);
+                    (distance, beacon)
+                }).min().expect("no beacons");
 
-        let content = view.layout.cells[target].content;
-        let new_counts = counts.clone().add(content);
+                let content = view.layout.cells[target].content;
+                let new_counts = counts.clone().add(content);
 
-        let initial_spread = beacons.len() as i32;
-        let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
+                let initial_spread = beacons.len() as i32;
+                let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
 
-        let new_spread = initial_spread + distance;
-        let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
-        if new_collection_rate > initial_collection_rate {
-            let ants_per_cell = state.total_ants[player] / new_spread;
-            for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
-                if attack[cell] > ants_per_cell { break } // Stop if we cannot gain anything from harvesting this cell
+                let new_spread = initial_spread + distance;
+                let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
+                if new_collection_rate > initial_collection_rate {
+                    let ants_per_cell = state.total_ants[player] / new_spread;
+                    for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
+                        if attack[cell] > ants_per_cell { break } // Stop if we cannot gain anything from harvesting this cell
 
-                beacons.insert(cell);
-                unused_bases.remove(&cell);
+                        beacons.insert(cell);
+                        unused_bases.remove(&cell);
+                    }
+                    targets.push(target);
+
+                    counts = new_counts;
+
+                } else {
+                    // Best harvest not worth it, so none others will be either
+                    break;
+                }
             }
-            targets.push(target);
-
-            counts = new_counts;
-
-        } else {
-            // Best harvest not worth it, so none others will be either
-            break;
         }
     }
 
