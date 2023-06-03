@@ -1,5 +1,7 @@
 use rand::prelude::*;
 use std::fmt::Display;
+use std::time::Instant;
+use super::evaluation::{self,Endgame};
 use super::planning::Milestone;
 use super::view::*;
 
@@ -10,6 +12,135 @@ const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.5;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
 const LEARNING_RATE: f32 = 0.01;
+
+#[derive(Copy,Clone)]
+enum SolverType {
+    Generation,
+    Mutation,
+}
+const NUM_SOLVERS: usize = 2;
+const SOLVERS: [SolverType; NUM_SOLVERS] = [
+    SolverType::Generation,
+    SolverType::Mutation,
+];
+
+enum Lesson {
+    Generation(Box<[Walk]>),
+    Mutation(Mutation),
+}
+
+pub struct SolverStats {
+    pub num_evaluated: i32,
+    pub num_successful_generations: i32,
+    pub num_successful_mutations: i32,
+    pub elapsed_ms: u128,
+}
+pub struct Solver {
+    generator: PheromoneMatrix,
+    mutator: Mutator,
+}
+impl Solver {
+    pub fn new(player: usize, view: &View) -> Self {
+        Self {
+            generator: PheromoneMatrix::new(player, view),
+            mutator: Mutator::new(),
+        }
+    }
+
+    pub fn solve(
+        &mut self,
+        search_ms: u128,
+        initial_plan: Vec<Milestone>,
+        view: &View,
+        state: &State,
+        rng: &mut StdRng) -> (Candidate,Candidate,SolverStats) {
+
+        let start = Instant::now();
+        let initial = Candidate::evaluate(initial_plan, view, state);
+        let mut best = initial.clone();
+
+        let mut num_evaluated: i32 = 1;
+        let mut num_successes = [0; NUM_SOLVERS];
+
+        let mut scorer = QuantileEstimator::new();
+        scorer.insert(best.score);
+
+        while start.elapsed().as_millis() < search_ms {
+            let solver = SOLVERS[num_evaluated as usize % NUM_SOLVERS];
+            let (plan, lesson) = match solver {
+                SolverType::Generation => {
+                    let (plan, walks) = self.generator.generate(rng, |cell| {
+                        state.resources[cell] > 0
+                    });
+                    (plan, Lesson::Generation(walks))
+                },
+                SolverType::Mutation => {
+                    let mut plan = best.plan.clone();
+                    let mutation = self.mutator.mutate(&mut plan, rng);
+                    (plan, Lesson::Mutation(mutation))
+                },
+            };
+
+            let candidate = Candidate::evaluate(plan, view, state);
+            num_evaluated += 1;
+
+            let quantile = scorer.quantile(candidate.score);
+            scorer.insert(candidate.score);
+
+            match lesson {
+                Lesson::Generation(walks) => self.generator.learn(quantile, &walks),
+                Lesson::Mutation(mutation) => self.mutator.learn(quantile, mutation),
+            }
+
+            if candidate.is_improvement(&best) {
+                best = candidate;
+                num_successes[solver as usize] += 1;
+            }
+        }
+
+        let stats = SolverStats {
+            num_evaluated,
+            num_successful_generations: num_successes[SolverType::Generation as usize],
+            num_successful_mutations: num_successes[SolverType::Mutation as usize],
+            elapsed_ms: start.elapsed().as_millis() as u128,
+        };
+        (initial, best, stats)
+    }
+}
+
+#[derive(Clone)]
+pub struct Candidate {
+    pub plan: Vec<Milestone>,
+    pub score: f32,
+    pub endgame: Endgame,
+}
+impl Candidate {
+    pub(self) fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Self {
+        let (score, endgame) = evaluation::rollout(&plan, view, state);
+        Self { plan, score, endgame }
+    }
+
+    pub fn is_improvement(&self, other: &Self) -> bool {
+        self.score > other.score
+    }
+}
+impl Display for Candidate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "score={:.0}: ", self.score)?;
+
+        let mut is_first = true;
+        for milestone in self.plan.iter() {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " ")?;
+            }
+            write!(f, "{}", milestone)?;
+        }
+        Ok(())
+    }
+}
+
 
 #[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
 pub struct Quantile(f32);
