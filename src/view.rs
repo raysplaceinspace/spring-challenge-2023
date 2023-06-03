@@ -115,12 +115,31 @@ impl State {
     }
 }
 
-pub fn find_winner(crystals: &CrystalsPerPlayer, view: &View) -> Option<usize> {
+pub fn find_winner(view: &View, state: &State) -> Option<usize> {
     let threshold = view.initial_crystals / 2;
+    
+    let mut is_game_over = state.tick >= MAX_TICKS;
     for player in 0..NUM_PLAYERS {
-        if crystals[player] >= threshold {
+        if state.crystals[player] > threshold {
             return Some(player);
+        } else if state.crystals[player] == threshold {
+            is_game_over = true;
         }
     }
+
+    if is_game_over {
+        if state.crystals[ME] > state.crystals[ENEMY] {
+            return Some(ME);
+        } else if state.crystals[ME] < state.crystals[ENEMY] {
+            return Some(ENEMY);
+        } else if state.total_ants[ME] > state.total_ants[ENEMY] {
+            return Some(ME);
+        } else if state.total_ants[ME] < state.total_ants[ENEMY] {
+            return Some(ENEMY);
+        } else {
+            return Some(ENEMY);
+        }
+    }
+
     None
 }

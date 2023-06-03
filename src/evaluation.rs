@@ -35,7 +35,7 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
             payoff += evaluate_harvesting(player, state.crystals[player], initial_crystals[player], age);
         }
 
-        if let Some(winner) = view::find_winner(&state.crystals, view) {
+        if let Some(winner) = view::find_winner(view, &state) {
             payoff += evaluate_win(winner, age);
             break;
         }

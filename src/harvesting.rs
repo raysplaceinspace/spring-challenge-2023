@@ -33,7 +33,7 @@ impl HarvestMap {
     }
 }
 
-fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Box<[i32]> {
+pub fn calculate_max_flow_for_player(player: usize, view: &View, num_ants: &AntsPerCellPerPlayer) -> Box<[i32]> {
     calculate_flows_to_base(view.layout.bases[player].iter().cloned(), &view.layout, &num_ants[player])
 }
 
