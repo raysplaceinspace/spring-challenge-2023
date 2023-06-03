@@ -69,29 +69,32 @@ impl Agent {
             }
         }
 
+        let harvests = [
+            HarvestAndSpawnEvaluator::new(ME, view, state),
+            HarvestAndSpawnEvaluator::new(ENEMY, view, state),
+        ];
+
+        let commands = planning::enact_plan(ME, &best.plan, view, state);
+        let countermoves = opponents::enact_countermoves(ENEMY, view, state);
+
+        let mut actions = movement::assignments_to_actions(&commands.assignments);
+        actions.push(Action::Message { text: {
+            if best.endgame.crystals[ME] >= best.endgame.crystals[ENEMY] {
+                "Good game :)".to_string()
+            } else {
+                "Congratulations!".to_string()
+            }
+        }});
+
         eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
         eprintln!("best: {}", best);
-
         eprintln!(
             "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",
             best.endgame.tick,
             best.endgame.crystals[0], best.endgame.crystals[1],
             best.endgame.num_ants[0], best.endgame.num_ants[1],
         );
-
-        let commands = planning::enact_plan(ME, &best.plan, view, state);
-        let countermoves = opponents::enact_countermoves(ENEMY, view, state);
-
-        let mut actions = movement::assignments_to_actions(&commands.assignments);
-
-        let summary = format!("{} vs {}", commands, countermoves);
-        eprintln!("Goals: {}", summary);
-        actions.push(Action::Message { text: summary });
-
-        let harvests = [
-            HarvestAndSpawnEvaluator::new(ME, view, state),
-            HarvestAndSpawnEvaluator::new(ENEMY, view, state),
-        ];
+        eprintln!("Goals: {} vs {}", commands, countermoves);
         eprintln!("Ticks to win: {:.0} vs {:.0}", harvests[0].ticks_to_harvest_remaining_crystals(), harvests[1].ticks_to_harvest_remaining_crystals());
         eprintln!("Ticks saved from 1 egg: {:.2} vs {:.2}", harvests[0].calculate_ticks_saved_harvesting_eggs(1), harvests[1].calculate_ticks_saved_harvesting_eggs(1));
 
