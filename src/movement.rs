@@ -31,7 +31,7 @@ pub fn spread_ants_across_beacons<'a>(beacons: impl Iterator<Item=usize>, player
 
     let mut remaining_beacons = beacons.len() as i32;
     let mut remaining_ants = total_ants;
-    for cell in beacons.into_iter().rev() { // Place ants from farthest to closest to base because we round down initially. This will place more closer to the base.
+    for cell in beacons.into_iter() { // Place ants from closest to farthest beacon because rounding will cause more ants to be placed further away
         if remaining_ants <= 0 { break }
 
         let assign_to_this_beacon = remaining_ants / remaining_beacons;
