@@ -1,6 +1,5 @@
 use super::planning::{self,*};
 use super::inputs::*;
-use super::opponents::{self,Countermoves};
 use super::simulation;
 use super::view::{self,*};
 
@@ -15,28 +14,28 @@ pub struct Endgame {
     pub total_ants: [i32; NUM_PLAYERS],
 }
 
-pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
+pub fn rollout(me: usize, plans: [&Vec<Milestone>; NUM_PLAYERS], view: &View, state: &State) -> (f32,Endgame) {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
     for age in 0..NUM_TICKS {
-        let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plan, view, &state);
-        let Countermoves { assignments: enemy_assignments, .. } = opponents::enact_countermoves(ENEMY, view, &state);
+        let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plans[ME], view, &state);
+        let Commands { assignments: enemy_assignments, .. } = planning::enact_plan(ENEMY, plans[ENEMY], view, &state);
 
         let assignments = [
             my_assignments,
             enemy_assignments,
         ];
 
-        let initial_crystals = state.crystals.clone();
+        let previous_crystals = state.crystals.clone();
         simulation::forward(&assignments, view, &mut state);
 
         for player in 0..NUM_PLAYERS {
-            payoff += evaluate_harvesting(player, state.crystals[player], initial_crystals[player], age);
+            payoff += player_sign(me, player) * evaluate_harvesting(state.crystals[player], previous_crystals[player], age);
         }
 
         if let Some(winner) = view::find_winner(&state.crystals, view) {
-            payoff += evaluate_win(winner, age);
+            payoff += player_sign(me, winner) * evaluate_win(age);
             break;
         }
 
@@ -55,17 +54,17 @@ fn discount(age: u32) -> f32 {
     DECAY_RATE.powi(age as i32)
 }
 
-fn evaluate_harvesting(player: usize, num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {
+fn evaluate_harvesting(num_crystals: i32, previous_crystals: i32, age: u32) -> f32 {
     let mined = num_crystals - previous_crystals;
-    mined as f32 * evaluate_player(player) * discount(age)
+    mined as f32 * discount(age)
 }
 
-fn evaluate_win(player: usize, age: u32) -> f32 {
-    WIN_PAYOFF * evaluate_player(player) * discount(age)
+fn evaluate_win(age: u32) -> f32 {
+    WIN_PAYOFF * discount(age)
 }
 
-fn evaluate_player(player: usize) -> f32 {
-    if player == ME {
+fn player_sign(me: usize, player: usize) -> f32 {
+    if player == me {
         1.0
     } else {
         -1.0

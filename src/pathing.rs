@@ -47,19 +47,6 @@ impl NearbyPathMap {
         }
     }
 
-    pub fn nearest(&self, target: usize, layout: &Layout) -> usize {
-        let mut current = target;
-        loop {
-            let distance = self.distance_to_nearest[current];
-            if distance <= 0 { return current }
-            current = layout.cells[current].neighbors.iter().min_by_key(|&&n| self.distance_to_nearest[n]).cloned().expect("missing neighbors");
-        }
-    }
-
-    pub fn distance_to(&self, cell: usize) -> i32 {
-        self.distance_to_nearest[cell]
-    }
-
     pub fn step_towards(&self, source: usize, sink: usize, layout: &Layout, paths: &PathMap) -> Option<usize> {
         let distances_to_sink = &paths.sources[sink].distances; // The distance map is symmetrical, so can use the sink as a source
         let best = layout.cells[source].neighbors.iter().min_by_key(|&&n| {

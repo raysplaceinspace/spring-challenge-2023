@@ -5,7 +5,6 @@ mod interface;
 mod harvesting;
 mod inputs;
 mod movement;
-mod opponents;
 mod pathing;
 mod planning;
 mod simulation;
@@ -23,7 +22,7 @@ fn main() {
     let layout = interface::read_initial();
     let view = View::new(layout);
 
-    let mut agent = Agent::new(ME, &view);
+    let mut agent = Agent::new(&view);
     let mut tick = 0;
     loop {
         // Read input
