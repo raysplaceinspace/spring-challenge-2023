@@ -12,23 +12,20 @@ const SEARCH_MS: u128 = 90;
 
 pub struct Agent {
     solver: Solver,
-    previous_plan: Option<Vec<Milestone>>,
+    plan: Vec<Milestone>,
     rng: StdRng,
 }
 impl Agent {
     pub fn new(player: usize, view: &View) -> Self {
         Self {
             solver: Solver::new(player, view),
-            previous_plan: None,
+            plan: Vec::new(),
             rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
     }
 
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
-        let initial_plan = match self.previous_plan.take() {
-            Some(plan) => Milestone::reap(plan, state),
-            None => Vec::new(),
-        };
+        let initial_plan = Milestone::reap(self.plan.clone(), state);
         let (initial, best, stats) = self.solver.solve(SEARCH_MS, initial_plan, view, state, &mut self.rng);
 
         let harvests = [
@@ -62,7 +59,7 @@ impl Agent {
         eprintln!("Ticks to win: {:.0} vs {:.0}", harvests[0].ticks_to_harvest_remaining_crystals(), harvests[1].ticks_to_harvest_remaining_crystals());
         eprintln!("Ticks saved from 1 egg: {:.2} vs {:.2}", harvests[0].calculate_ticks_saved_harvesting_eggs(1), harvests[1].calculate_ticks_saved_harvesting_eggs(1));
 
-        self.previous_plan = Some(best.plan);
+        self.plan = best.plan;
         actions
     }
 }
