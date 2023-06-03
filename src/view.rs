@@ -6,6 +6,8 @@ pub type AntsPerCellPerPlayer = [AntsPerCell; NUM_PLAYERS];
 pub type ResourcesPerCell = Box<[i32]>;
 pub type ClosestBases = Box<[usize]>;
 pub type ClosestBasesPerPlayer = [ClosestBases; NUM_PLAYERS];
+pub type DistanceToClosestBase = Box<[i32]>;
+pub type DistanceToClosestBasePerPlayer = [DistanceToClosestBase; NUM_PLAYERS];
 pub type ClosestResources = Box<[usize]>;
 pub type ClosestResourcesPerPlayer = [ClosestResources; NUM_PLAYERS];
 
@@ -17,6 +19,7 @@ pub struct View {
 
     /// player -> cell -> closest base
     pub closest_bases: ClosestBasesPerPlayer,
+    pub distance_to_closest_base: DistanceToClosestBasePerPlayer,
 
     /// player -> cell containing resources, sorted nearest to farthest
     pub closest_crystals: ClosestResourcesPerPlayer,
@@ -26,17 +29,21 @@ impl View {
     pub fn new(layout: Layout) -> Self {
         let paths = PathMap::generate(&layout);
 
+        let closest_bases = [
+            Self::find_closest_bases(ME, &layout, &paths),
+            Self::find_closest_bases(ENEMY, &layout, &paths),
+        ];
+        let distance_to_closest_base = [
+            Self::calculate_distances_to_closest_base(&closest_bases[ME], &paths),
+            Self::calculate_distances_to_closest_base(&closest_bases[ENEMY], &paths),
+        ];
+        
         Self {
             initial_crystals:
                 layout.cells.iter()
                 .filter(|cell| cell.content == Some(Content::Crystals))
                 .map(|cell| cell.initial_resources)
                 .sum(),
-
-            closest_bases: [
-                Self::find_closest_bases(ME, &layout, &paths),
-                Self::find_closest_bases(ENEMY, &layout, &paths),
-            ],
 
             closest_crystals: [
                 Self::find_closest_resources(Content::Crystals, ME, &layout, &paths),
@@ -47,6 +54,9 @@ impl View {
                 Self::find_closest_resources(Content::Eggs, ME, &layout, &paths),
                 Self::find_closest_resources(Content::Eggs, ENEMY, &layout, &paths),
             ],
+
+            closest_bases,
+            distance_to_closest_base,
 
             paths,
             layout,
@@ -60,6 +70,14 @@ impl View {
             }).expect("bases missing")
         }).collect();
         closest_bases.into_boxed_slice()
+    }
+
+    fn calculate_distances_to_closest_base(closest_bases: &ClosestBases, paths: &PathMap) -> DistanceToClosestBase {
+        let num_cells = closest_bases.len();
+        let distances: Vec<i32> = (0..num_cells).map(|cell| {
+            paths.distance_between(closest_bases[cell], cell)
+        }).collect();
+        distances.into_boxed_slice()
     }
 
     fn find_closest_resources(content: Content, player: usize, layout: &Layout, paths: &PathMap) -> ClosestResources {

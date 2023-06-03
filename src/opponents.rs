@@ -82,7 +82,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 
     Countermoves {
-        assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, state),
+        assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, view, state),
         targets,
     }
 }

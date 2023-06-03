@@ -76,8 +76,7 @@ impl HarvestAndSpawnEvaluator {
             if available <= 0 { continue }
 
             let harvest = remaining_crystals.min(available);
-            let base = view.closest_bases[player][cell];
-            let distance = view.paths.distance_between(base, cell);
+            let distance = view.distance_to_closest_base[player][cell];
 
             let harvest_per_tick = (total_ants / distance).max(1); // If too far away to harvest, just pretend we can harvest it slowly - the math will work out about the same and we don't have to worry about infinities
             let ticks_to_harvest = (harvest as f32 / harvest_per_tick as f32).ceil() as i32;

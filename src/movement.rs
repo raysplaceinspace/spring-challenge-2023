@@ -19,22 +19,24 @@ struct Candidate {
     pub sink: usize,
 }
 
-pub fn spread_ants_across_beacons<'a>(beacons: impl ExactSizeIterator<Item=usize>, player: usize, state: &State) -> Assignments {
+pub fn spread_ants_across_beacons<'a>(beacons: impl Iterator<Item=usize>, player: usize, view: &View, state: &State) -> Assignments {
     let num_cells = state.resources.len();
+    let mut beacons: Vec<usize> = beacons.collect();
+    beacons.sort_by_key(|&cell| view.distance_to_closest_base[player][cell]);
 
-    let total_beacons = beacons.len();
     let total_ants: i32 = state.num_ants[player].iter().sum();
 
     let mut assignments = Vec::new();
     assignments.resize(num_cells, 0);
 
+    let mut remaining_beacons = beacons.len() as i32;
     let mut remaining_ants = total_ants;
-    for (index, cell) in beacons.enumerate() {
+    for cell in beacons.into_iter().rev() { // Place ants from farthest to closest to base because we round down initially. This will place more closer to the base.
         if remaining_ants <= 0 { break }
 
-        let remaining_beacons = (total_beacons - index) as i32;
         let assign_to_this_beacon = remaining_ants / remaining_beacons;
 
+        remaining_beacons -= 1;
         remaining_ants -= assign_to_this_beacon;
         assignments[cell] = assign_to_this_beacon;
     }
