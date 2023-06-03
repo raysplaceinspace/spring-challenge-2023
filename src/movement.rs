@@ -22,7 +22,7 @@ struct Candidate {
 pub fn spread_ants_across_beacons<'a>(beacons: impl Iterator<Item=usize>, player: usize, view: &View, state: &State) -> Assignments {
     let num_cells = state.resources.len();
     let mut beacons: Vec<usize> = beacons.collect();
-    beacons.sort_by_key(|&cell| view.distance_to_closest_base[player][cell]);
+    beacons.sort_by_key(|&cell| (view.distance_to_closest_base[player][cell], cell));
 
     let total_ants: i32 = state.num_ants[player].iter().sum();
 
