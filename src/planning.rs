@@ -8,14 +8,21 @@ use super::valuation::{NumHarvests,HarvestEvaluator};
 use super::pathing::NearbyPathMap;
 use super::view::*;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq,Eq,Hash)]
 pub enum Milestone {
     Harvest(usize),
+    Barrier,
 }
 impl Milestone {
     pub fn reap(mut plan: Vec<Milestone>, state: &State) -> Vec<Milestone> {
+        let mut harvested_yet = false;
         plan.retain(|milestone| match milestone {
-            Self::Harvest(cell) => state.resources[*cell] > 0,
+            Self::Harvest(cell) => {
+                let has_resources = state.resources[*cell] > 0;
+                harvested_yet |= has_resources;
+                has_resources
+            },
+            Self::Barrier => harvested_yet,
         });
         plan
     }
@@ -24,6 +31,7 @@ impl Display for Milestone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Harvest(cell) => cell.fmt(f),
+            Self::Barrier => write!(f, "|"),
         }
     }
 }
@@ -41,6 +49,10 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
     for milestone in plan.iter() {
         match milestone {
+            Milestone::Barrier => {
+                if !targets.is_empty() { break } // Barriers tell us to stop finding new targets if we already have some
+            },
+
             &Milestone::Harvest(target) => {
                 if state.resources[target] <= 0 { continue } // Nothing to harvest here
 

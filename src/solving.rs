@@ -425,13 +425,15 @@ pub enum Mutation {
     Bubble,
     Move,
     Swap,
+    Barrier,
 }
 
-const NUM_MUTATIONS: usize = 3;
+const NUM_MUTATIONS: usize = 4;
 const MUTATIONS: [Mutation; NUM_MUTATIONS] = [
     Mutation::Bubble,
     Mutation::Move,
     Mutation::Swap,
+    Mutation::Barrier,
 ];
 
 pub struct Mutator {
@@ -450,6 +452,7 @@ impl Mutator {
             Mutation::Bubble => bubble_mutation(plan, rng),
             Mutation::Move => move_mutation(plan, rng),
             Mutation::Swap => swap_mutation(plan, rng),
+            Mutation::Barrier => barrier_mutation(plan, rng),
         };
         mutation
     }
@@ -484,6 +487,25 @@ fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
     let to = rng.gen_range(0 .. plan.len());
 
     plan.swap(from, to);
+}
+
+fn barrier_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let index = rng.gen_range(0 .. plan.len());
+
+    match &plan[index] {
+        Milestone::Harvest(_) => {
+            // Insert a barrier after the harvest
+            let barrier_index = index + 1;
+            if barrier_index < plan.len() && plan[barrier_index] != Milestone::Barrier {
+                plan.insert(barrier_index, Milestone::Barrier);
+            }
+        },
+        Milestone::Barrier => {
+            // Remove a barrier if we encounter one
+            plan.remove(index);
+        },
+    }
 }
 
 
