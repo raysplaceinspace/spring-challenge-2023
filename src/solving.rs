@@ -3,6 +3,8 @@ use std::fmt::Display;
 use super::planning::Milestone;
 use super::view::*;
 
+const SELECTION_POWER: i32 = 2;
+
 const INITIAL_QUANTILE: f32 = 0.5;
 const INITIAL_QUANTILE_DECAY_BASE: f32 = 0.5;
 const QUANTILE_SAMPLE_LIMIT: usize = 32;
@@ -116,6 +118,7 @@ impl QuantileEstimator {
     }
 }
 
+
 pub struct PheromoneMatrix {
     /// cell to vein id
     id_lookup: Box<[Option<usize>]>,
@@ -183,7 +186,7 @@ impl PheromoneMatrix {
         }
     }
 
-    pub fn generate(&self, power: f32, rng: &mut StdRng, is_allowed: impl Fn(usize) -> bool) -> (Vec<Milestone>,Box<[Walk]>) {
+    pub fn generate(&self, rng: &mut StdRng, is_allowed: impl Fn(usize) -> bool) -> (Vec<Milestone>,Box<[Walk]>) {
         let mut allowed: Vec<bool> = self.veins.iter().map(|&cell| is_allowed(cell)).collect();
         let mut num_remaining = allowed.iter().filter(|&&allowed| allowed).count() as i32;
 
@@ -207,7 +210,7 @@ impl PheromoneMatrix {
             let mut total = 0.0;
             for vein in 0..quantiles.len() {
                 if allowed[vein] {
-                    total += quantiles[vein].powf(power);
+                    total += quantiles[vein].powi(SELECTION_POWER);
                 }
             }
 
@@ -217,7 +220,7 @@ impl PheromoneMatrix {
             let mut selected = None;
             for vein in 0..quantiles.len() {
                 if allowed[vein] {
-                    cumulative += quantiles[vein].powf(power);
+                    cumulative += quantiles[vein].powi(SELECTION_POWER);
                     if selector <= cumulative {
                         selected = Some(vein);
                         break;
@@ -251,8 +254,7 @@ impl PheromoneMatrix {
                         } else {
                             &mut self.head_quantiles[walk.base_id]
                         };
-                    let weight = &mut quantiles[vein];
-                    *weight = (1.0 - LEARNING_RATE) * *weight + LEARNING_RATE * quantile.f32();
+                    learn_quantile(&mut quantiles[vein], quantile);
 
                     previous = Some(vein);
                 }
@@ -272,4 +274,89 @@ impl Walk {
             veins: Vec::new(),
         }
     }
+}
+
+
+#[derive(Clone,Copy,PartialEq,Eq,Hash)]
+pub enum Mutation {
+    Bubble,
+    Move,
+    Swap,
+}
+
+const NUM_MUTATIONS: usize = 3;
+const MUTATIONS: [Mutation; NUM_MUTATIONS] = [
+    Mutation::Bubble,
+    Mutation::Move,
+    Mutation::Swap,
+];
+
+pub struct Mutator {
+    mutation_quantiles: [f32; NUM_MUTATIONS],
+}
+impl Mutator {
+    pub fn new() -> Self {
+        Self {
+            mutation_quantiles: [INITIAL_QUANTILE; NUM_MUTATIONS],
+        }
+    }
+
+    pub fn mutate(&self, plan: &mut Vec<Milestone>, rng: &mut StdRng) -> Mutation {
+        let total = self.mutation_quantiles.iter().map(|x| x.powi(SELECTION_POWER)).sum::<f32>();
+        let selector = total * rng.gen::<f32>();
+
+        let mut cumulative = 0.0;
+        let mut mutation = None;
+        for (index, &quantile) in self.mutation_quantiles.iter().enumerate() {
+            cumulative += quantile.powi(SELECTION_POWER);
+            if selector <= cumulative {
+                mutation = Some(MUTATIONS[index]);
+                break;
+            }
+        }
+        let mutation = mutation.expect("Failed to select a mutation");
+
+        match mutation {
+            Mutation::Bubble => bubble_mutation(plan, rng),
+            Mutation::Move => move_mutation(plan, rng),
+            Mutation::Swap => swap_mutation(plan, rng),
+        };
+        mutation
+    }
+
+    pub fn learn(&mut self, quantile: Quantile, mutation: Mutation) {
+        learn_quantile(&mut self.mutation_quantiles[mutation as usize], quantile);
+    }
+}
+
+fn bubble_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let index = rng.gen_range(0 .. (plan.len()-1));
+    plan.swap(index, index+1);
+}
+
+fn move_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let from = rng.gen_range(0 .. plan.len());
+    let to = rng.gen_range(0 .. plan.len()); // -1 because insertion array is one shorter, but +1 because we want to be able to insert at the end as well, so it cancels out
+
+    let milestone = plan.remove(from);
+    if to >= plan.len() {
+        plan.push(milestone);
+    } else {
+        plan.insert(to, milestone);
+    }
+}
+
+fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let from = rng.gen_range(0 .. plan.len());
+    let to = rng.gen_range(0 .. plan.len());
+
+    plan.swap(from, to);
+}
+
+
+fn learn_quantile(weight: &mut f32, quantile: Quantile) {
+    *weight = (1.0 - LEARNING_RATE) * *weight + LEARNING_RATE * quantile.f32();
 }

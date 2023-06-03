@@ -8,24 +8,39 @@ use super::view::*;
 use super::evaluation::{self,Endgame};
 use super::opponents;
 use super::planning::{self,*};
-use super::solving::{QuantileEstimator,PheromoneMatrix};
+use super::solving::{QuantileEstimator,PheromoneMatrix,Mutator,Mutation,Walk};
 use super::valuation::HarvestAndSpawnEvaluator;
 
-const SEARCH_MS: u128 = 80;
+const SEARCH_MS: u128 = 90;
 const CLOSE_ENOUGH: f32 = 0.01;
 
-const WALK_MIN_POWER: f32 = 2.0;
-const WALK_POWER_PER_ITERATION: f32 = 0.01;
+#[derive(Copy,Clone)]
+enum SolverType {
+    Generation,
+    Mutation,
+}
+const NUM_SOLVERS: usize = 2;
+const SOLVERS: [SolverType; NUM_SOLVERS] = [
+    SolverType::Generation,
+    SolverType::Mutation,
+];
+
+enum Lesson {
+    Generation(Box<[Walk]>),
+    Mutation(Mutation),
+}
 
 pub struct Agent {
-    pheromones: PheromoneMatrix,
+    generator: PheromoneMatrix,
+    mutator: Mutator,
     previous_plan: Option<Vec<Milestone>>,
     rng: StdRng,
 }
 impl Agent {
     pub fn new(player: usize, view: &View) -> Self {
         Self {
-            pheromones: PheromoneMatrix::new(player, view),
+            generator: PheromoneMatrix::new(player, view),
+            mutator: Mutator::new(),
             previous_plan: None,
             rng: StdRng::seed_from_u64(0x1234567890abcdef),
         }
@@ -45,27 +60,41 @@ impl Agent {
         eprintln!("initial: {}", best);
 
         let mut num_evaluated = 1;
-        let mut num_improvements = 0;
+        let mut num_successes = [0; NUM_SOLVERS];
 
         let mut scorer = QuantileEstimator::new();
         scorer.insert(best.score);
 
         while start.elapsed().as_millis() < SEARCH_MS {
-            let walk_power = WALK_MIN_POWER + WALK_POWER_PER_ITERATION * num_evaluated as f32;
+            let solver = SOLVERS[num_evaluated % NUM_SOLVERS];
+            let (plan, lesson) = match solver {
+                SolverType::Generation => {
+                    let (plan, walks) = self.generator.generate(&mut self.rng, |cell| {
+                        state.resources[cell] > 0
+                    });
+                    (plan, Lesson::Generation(walks))
+                },
+                SolverType::Mutation => {
+                    let mut plan = best.plan.clone();
+                    let mutation = self.mutator.mutate(&mut plan, &mut self.rng);
+                    (plan, Lesson::Mutation(mutation))
+                },
+            };
 
-            let (plan, walks) = self.pheromones.generate(walk_power, &mut self.rng, |cell| {
-                state.resources[cell] > 0
-            });
             let candidate = Candidate::evaluate(plan, view, state);
             num_evaluated += 1;
 
             let quantile = scorer.quantile(candidate.score);
             scorer.insert(candidate.score);
-            self.pheromones.learn(quantile, &walks);
+
+            match lesson {
+                Lesson::Generation(walks) => self.generator.learn(quantile, &walks),
+                Lesson::Mutation(mutation) => self.mutator.learn(quantile, mutation),
+            }
 
             if candidate.is_improvement(&best) {
                 best = candidate;
-                num_improvements += 1;
+                num_successes[solver as usize] += 1;
             }
         }
 
@@ -86,7 +115,8 @@ impl Agent {
             }
         }});
 
-        eprintln!("{}: found best plan in {:.0} ms ({}/{} successful iterations)", state.tick, start.elapsed().as_millis(), num_improvements, num_evaluated);
+        eprintln!("{}: found best plan in {:.0} ms ({} iterations)", state.tick, start.elapsed().as_millis(), num_evaluated);
+        eprintln!("Successful: {} generations, {} mutations", num_successes[SolverType::Generation as usize], num_successes[SolverType::Mutation as usize]);
         eprintln!("best: {}", best);
         eprintln!(
             "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",
