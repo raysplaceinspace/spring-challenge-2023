@@ -12,10 +12,11 @@ struct Movement {
     pub assigned: i32,
 }
 
+#[derive(PartialOrd,Ord,PartialEq,Eq)]
 struct Candidate {
+    pub distance: i32,
     pub source: usize,
     pub sink: usize,
-    pub distance: i32,
 }
 
 pub fn spread_ants_across_beacons<'a>(beacons: impl ExactSizeIterator<Item=usize>, player: usize, state: &State) -> Assignments {
@@ -74,41 +75,36 @@ pub fn move_ants_for_player(assignments: &Assignments, view: &View, num_ants: &m
     // Assign which ants should move where
     let mut movements = Vec::new();
     while !sources.is_empty() && !sinks.is_empty() {
-        if let Some(closest) =
-            sinks.iter().filter_map(|sink| {
-                let closest = sources.iter().map(|source| {
+        let closest =
+            sinks.iter().map(|sink| {
+                sources.iter().map(|source| {
                     Candidate {
                         source: *source,
                         sink: *sink,
                         distance: view.paths.distance_between(*source, *sink),
                     }
-                }).min_by_key(|candidate| candidate.distance)?;
-                Some(closest)
-            }).min_by_key(|candidate| candidate.distance) {
+                }).min().expect("no sources")
+            }).min().expect("no sinks");
 
-            let available = excess[closest.source];
-            let required = -excess[closest.sink];
-            let assigned = available.min(required);
-            if assigned <= 0 { panic!("Nothing to assign from source to sink") }
+        let available = excess[closest.source];
+        let required = -excess[closest.sink];
+        let assigned = available.min(required);
+        if assigned <= 0 { panic!("Nothing to assign from source to sink") }
 
-            movements.push(Movement {
-                source: closest.source,
-                sink: closest.sink,
-                assigned,
-            });
+        movements.push(Movement {
+            source: closest.source,
+            sink: closest.sink,
+            assigned,
+        });
 
-            excess[closest.source] -= assigned;
-            if excess[closest.source] <= 0 {
-                sources.remove(&closest.source);
-            }
+        excess[closest.source] -= assigned;
+        if excess[closest.source] <= 0 {
+            sources.remove(&closest.source);
+        }
 
-            excess[closest.sink] += assigned;
-            if excess[closest.sink] >= 0 {
-                sinks.remove(&closest.sink);
-            }
-
-        } else {
-            panic!("Unable to find a movement candidate")
+        excess[closest.sink] += assigned;
+        if excess[closest.sink] >= 0 {
+            sinks.remove(&closest.sink);
         }
     }
 

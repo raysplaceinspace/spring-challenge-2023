@@ -43,7 +43,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         let (distance, closest_beacon) = beacons.iter().map(|&beacon| {
             let distance = view.paths.distance_between(beacon, target);
             (distance, beacon)
-        }).min_by_key(|&(distance,_)| distance).expect("no beacons");
+        }).min().expect("no beacons");
 
         let content = view.layout.cells[target].content;
         let new_counts = counts.clone().add(content);
