@@ -52,7 +52,7 @@ impl Agent {
         }});
 
         eprintln!("{}: found best plan in {:.0} ms ({} iterations)", state.tick, stats.elapsed_ms as f32, stats.num_evaluated);
-        eprintln!("Successful: {} generations, {} mutations", stats.num_successful_generations, stats.num_successful_mutations);
+        eprintln!("Successful: {}/{} generations, {}/{} mutations", stats.num_successful_generations, stats.num_generations, stats.num_successful_mutations, stats.num_mutations);
         eprintln!("Initial: {}", initial);
         eprintln!("Best: {}", best);
         eprintln!(

@@ -31,17 +31,21 @@ enum Lesson {
 
 pub struct SolverStats {
     pub num_evaluated: i32,
+    pub num_generations: i32,
+    pub num_mutations: i32,
     pub num_successful_generations: i32,
     pub num_successful_mutations: i32,
     pub elapsed_ms: u128,
 }
 pub struct Solver {
+    solver_quantiles: [f32; NUM_SOLVERS],
     generator: PheromoneMatrix,
     mutator: Mutator,
 }
 impl Solver {
     pub fn new(player: usize, view: &View) -> Self {
         Self {
+            solver_quantiles: [INITIAL_QUANTILE; NUM_SOLVERS],
             generator: PheromoneMatrix::new(player, view),
             mutator: Mutator::new(),
         }
@@ -60,13 +64,15 @@ impl Solver {
         let mut best = initial.clone();
 
         let mut num_evaluated: i32 = 1;
+        let mut num_iterations = [0; NUM_SOLVERS];
         let mut num_successes = [0; NUM_SOLVERS];
 
         let mut scorer = QuantileEstimator::new();
         scorer.insert(best.score);
 
         while start.elapsed().as_millis() < search_ms {
-            let solver = SOLVERS[num_evaluated as usize % NUM_SOLVERS];
+            // Generate solution
+            let solver = SOLVERS[select_weighted(&self.solver_quantiles, rng)];
             let (plan, lesson) = match solver {
                 SolverType::Generation => {
                     let (plan, walks) = self.generator.generate(rng, |cell| {
@@ -80,18 +86,22 @@ impl Solver {
                     (plan, Lesson::Mutation(mutation))
                 },
             };
+            num_iterations[solver as usize] += 1;
 
+            // Evaluate solution
             let candidate = Candidate::evaluate(plan, view, state);
             num_evaluated += 1;
 
+            // Learn quantiles
             let quantile = scorer.quantile(candidate.score);
             scorer.insert(candidate.score);
-
+            learn_quantile(&mut self.solver_quantiles[solver as usize], quantile);
             match lesson {
                 Lesson::Generation(walks) => self.generator.learn(quantile, &walks),
                 Lesson::Mutation(mutation) => self.mutator.learn(quantile, mutation),
             }
 
+            // Update best
             if candidate.is_improvement(&best) {
                 best = candidate;
                 num_successes[solver as usize] += 1;
@@ -100,6 +110,8 @@ impl Solver {
 
         let stats = SolverStats {
             num_evaluated,
+            num_generations: num_iterations[SolverType::Generation as usize],
+            num_mutations: num_iterations[SolverType::Mutation as usize],
             num_successful_generations: num_successes[SolverType::Generation as usize],
             num_successful_mutations: num_successes[SolverType::Mutation as usize],
             elapsed_ms: start.elapsed().as_millis() as u128,
@@ -433,20 +445,7 @@ impl Mutator {
     }
 
     pub fn mutate(&self, plan: &mut Vec<Milestone>, rng: &mut StdRng) -> Mutation {
-        let total = self.mutation_quantiles.iter().map(|x| x.powi(SELECTION_POWER)).sum::<f32>();
-        let selector = total * rng.gen::<f32>();
-
-        let mut cumulative = 0.0;
-        let mut mutation = None;
-        for (index, &quantile) in self.mutation_quantiles.iter().enumerate() {
-            cumulative += quantile.powi(SELECTION_POWER);
-            if selector <= cumulative {
-                mutation = Some(MUTATIONS[index]);
-                break;
-            }
-        }
-        let mutation = mutation.expect("Failed to select a mutation");
-
+        let mutation = MUTATIONS[select_weighted(&self.mutation_quantiles, rng)];
         match mutation {
             Mutation::Bubble => bubble_mutation(plan, rng),
             Mutation::Move => move_mutation(plan, rng),
@@ -490,4 +489,18 @@ fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
 
 fn learn_quantile(weight: &mut f32, quantile: Quantile) {
     *weight = (1.0 - LEARNING_RATE) * *weight + LEARNING_RATE * quantile.f32();
+}
+
+fn select_weighted(weights: &[f32], rng: &mut StdRng) -> usize {
+    let total = weights.iter().map(|x| x.powi(SELECTION_POWER)).sum::<f32>();
+    let selector = total * rng.gen::<f32>();
+
+    let mut cumulative = 0.0;
+    for (index, &quantile) in weights.iter().enumerate() {
+        cumulative += quantile.powi(SELECTION_POWER);
+        if selector <= cumulative {
+            return index;
+        }
+    }
+    panic!("Failed to select from weighted array");
 }
