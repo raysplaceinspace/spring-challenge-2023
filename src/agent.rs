@@ -9,11 +9,11 @@ use super::evaluation::{self,Endgame};
 use super::planning::{self,*};
 use super::solving::{QuantileEstimator,PheromoneMatrix};
 
-const ADVERSARIAL_MS: u128 = 10;
-const SEARCH_MS: u128 = 80;
+const ADVERSARIAL_MS: u128 = 30;
+const SEARCH_MS: u128 = 60;
 const CLOSE_ENOUGH: f32 = 0.01;
 
-const WALK_MIN_POWER: f32 = 2.0;
+const WALK_MIN_POWER: f32 = 1.0;
 const WALK_POWER_PER_ITERATION: f32 = 0.01;
 
 pub struct Agent {
