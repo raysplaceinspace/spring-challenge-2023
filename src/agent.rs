@@ -9,7 +9,7 @@ use super::evaluation::{self,Endgame};
 use super::opponents;
 use super::planning::{self,*};
 use super::solving::{QuantileEstimator,PheromoneMatrix};
-use super::valuation::HarvestEvaluator;
+use super::valuation::HarvestAndSpawnEvaluator;
 
 const SEARCH_MS: u128 = 80;
 const CLOSE_ENOUGH: f32 = 0.01;
@@ -85,16 +85,15 @@ impl Agent {
         let mut actions = movement::assignments_to_actions(&commands.assignments);
 
         let summary = format!("{} vs {}", commands, countermoves);
-        eprintln!("Next: {}", summary);
+        eprintln!("Goals: {}", summary);
         actions.push(Action::Message { text: summary });
 
         let harvests = [
-            HarvestEvaluator::new(ME, view, state),
-            HarvestEvaluator::new(ENEMY, view, state),
+            HarvestAndSpawnEvaluator::new(ME, view, state),
+            HarvestAndSpawnEvaluator::new(ENEMY, view, state),
         ];
-        for (player,harvest) in harvests.iter().enumerate() {
-            eprintln!("[{}] Harvest: {:.0} optimistic ticks to win, {:.2} gained from 1 egg", player, harvest.ticks_to_harvest_remaining_crystals(), harvest.calculate_ticks_saved_harvesting_eggs(1));
-        }
+        eprintln!("Ticks to win: {:.0} vs {:.0}", harvests[0].ticks_to_harvest_remaining_crystals(), harvests[1].ticks_to_harvest_remaining_crystals());
+        eprintln!("Ticks saved from 1 egg: {:.2} vs {:.2}", harvests[0].calculate_ticks_saved_harvesting_eggs(1), harvests[1].calculate_ticks_saved_harvesting_eggs(1));
 
         self.previous_plan = Some(best.plan);
         actions

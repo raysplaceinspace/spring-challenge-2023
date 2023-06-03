@@ -6,7 +6,7 @@ use super::inputs::*;
 use super::view::*;
 use super::movement::{self,Assignments};
 use super::pathing::NearbyPathMap;
-use super::valuation::{NumHarvests,HarvestEvaluator,ValueOrd};
+use super::valuation::{NumHarvests,HarvestAndSpawnEvaluator,ValueOrd};
 
 pub struct Countermoves {
     pub assignments: Assignments,
@@ -43,10 +43,10 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let mut beacon_mesh: Option<NearbyPathMap> = None;
 
     // Extend to collect nearby crystals
-    let evaluator = HarvestEvaluator::new(player, view, state);
+    let evaluator = HarvestAndSpawnEvaluator::new(player, view, state);
     let mut countermoves: FnvHashSet<usize> =
         (0..num_cells)
-        .filter(|&cell| !busy[cell] && evaluator.is_worth_harvesting(cell, player, view, state))
+        .filter(|&cell| !busy[cell] && state.resources[cell] > 0)
         .collect();
     let mut targets = Vec::new();
     let mut nearby: Option<NearbyPathMap> = None;

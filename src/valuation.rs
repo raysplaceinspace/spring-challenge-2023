@@ -1,4 +1,4 @@
-use super::inputs::Content;
+use super::inputs::{Content,MAX_TICKS};
 use super::view::*;
 
 #[derive(Clone,Copy,Debug,PartialEq,PartialOrd)]
@@ -37,20 +37,41 @@ impl NumHarvests {
 
 pub struct HarvestEvaluator {
     total_ants: i32,
-    ticks_to_harvest_remaining_crystals: i32,
 }
 impl HarvestEvaluator {
+    pub fn new(player: usize, state: &State) -> Self {
+        Self {
+            total_ants: state.num_ants[player].iter().cloned().sum(),
+        }
+    }
+
+    pub fn calculate_harvest_rate(&self, counts: &NumHarvests, spread: i32) -> f32 {
+        if spread <= 0 { return 0.0 }
+        let harvest_per_cell = self.total_ants / spread; // intentional integer division since ants can't be split
+
+        let num_crystals_harvested = harvest_per_cell * counts.num_crystal_harvests;
+        let num_eggs_harvested = harvest_per_cell * counts.num_egg_harvests;
+
+        num_crystals_harvested as f32 + num_eggs_harvested as f32
+    }
+}
+
+pub struct HarvestAndSpawnEvaluator {
+    total_ants: i32,
+    ticks_to_harvest_remaining_crystals: i32,
+    remaining_ticks_proportion: f32,
+}
+impl HarvestAndSpawnEvaluator {
     pub fn new(player: usize, view: &View, state: &State) -> Self {
         let total_ants: i32 = state.num_ants[player].iter().cloned().sum();
+        let remaining_ticks_proportion = MAX_TICKS.saturating_sub(state.tick) as f32 / MAX_TICKS as f32;
 
         let crystal_threshold = view.initial_crystals / 2;
         let mut remaining_crystals = (crystal_threshold - state.crystals[player]).max(0);
-        if remaining_crystals <= 0 {
-            return Self { total_ants, ticks_to_harvest_remaining_crystals: 0 };
-        }
-
         let mut ticks_to_harvest_remaining_crystals = 0;
         for &cell in view.closest_crystals[player].iter() {
+            if remaining_crystals <= 0 { break }
+
             let available = state.resources[cell];
             if available <= 0 { continue }
 
@@ -63,31 +84,12 @@ impl HarvestEvaluator {
 
             ticks_to_harvest_remaining_crystals += ticks_to_harvest;
             remaining_crystals -= harvest;
-
-            if remaining_crystals <= 0 { break }
         }
 
         Self {
             total_ants,
+            remaining_ticks_proportion,
             ticks_to_harvest_remaining_crystals,
-        }
-    }
-
-    pub fn is_worth_harvesting(&self, cell: usize, player: usize, view: &View, state: &State) -> bool {
-        let available = state.resources[cell];
-        if available <= 0 { return false }
-
-        match view.layout.cells[cell].content {
-            None => false,
-            Some(Content::Crystals) => true,
-            Some(Content::Eggs) => {
-                let base = view.closest_bases[player][cell];
-                let spread = view.paths.distance_between(base, cell);
-                let max_eggs_harvested = self.total_ants / spread;
-
-                // must save more than the 1 tick required to harvest this for it to be worth it
-                self.calculate_ticks_saved_harvesting_eggs(max_eggs_harvested) >= 1.0
-            },
         }
     }
 
@@ -98,7 +100,11 @@ impl HarvestEvaluator {
         let num_crystals_harvested = harvest_per_cell * counts.num_crystal_harvests;
         let num_eggs_harvested = harvest_per_cell * counts.num_egg_harvests;
 
-        num_crystals_harvested as f32 + num_eggs_harvested as f32
+        let egg_harvesting_value = (self.calculate_ticks_saved_harvesting_eggs(num_eggs_harvested) / 1.0).min(1.0);
+        let egg_time_value = self.remaining_ticks_proportion;
+        let egg_value = egg_harvesting_value.min(egg_time_value);
+
+        num_crystals_harvested as f32 + num_eggs_harvested as f32 * egg_value
     }
 
     pub fn calculate_ticks_saved_harvesting_eggs(&self, num_eggs: i32) -> f32 {
