@@ -34,17 +34,15 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     let mut counts = NumHarvests::new();
 
     let mut targets = Vec::new();
+    let mut unused_bases: FnvHashSet<_> = view.layout.bases[player].iter().copied().collect();
     let mut beacons = FnvHashSet::default();
-    for &base in view.layout.bases[player].iter() {
-        beacons.insert(base);
-    }
 
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
     for milestone in plan.iter() {
         let target = milestone.cell;
         if state.resources[target] <= 0 { continue } // Nothing to harvest here
 
-        let (distance, closest_beacon) = beacons.iter().map(|&beacon| {
+        let (distance, source) = beacons.iter().chain(unused_bases.iter()).map(|&beacon| {
             let distance = view.paths.distance_between(beacon, target);
             (distance, beacon)
         }).min().expect("no beacons");
@@ -59,10 +57,11 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
         let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
         if new_collection_rate > initial_collection_rate {
             let ants_per_cell = state.total_ants[player] / new_spread;
-            for cell in nearby.calculate_path(closest_beacon, target, &view.layout, &view.paths) {
+            for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
                 if attack[cell] > ants_per_cell { break } // Stop if we cannot gain anything from harvesting this cell
 
                 beacons.insert(cell);
+                unused_bases.remove(&cell);
             }
             targets.push(target);
 
