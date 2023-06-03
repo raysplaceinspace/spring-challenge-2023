@@ -61,7 +61,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
                 let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, initial_spread + distance);
                 (target, distance, new_counts, new_collection_rate)
             })
-            .max_by_key(|(_,distance,_,new_collection_rate)| (ValueOrd::new(*new_collection_rate), -*distance))
+            .max_by_key(|(target,distance,_,new_collection_rate)| (ValueOrd::new(*new_collection_rate), -*distance, *target))
             .expect("no countermoves");
 
         let new_spread = initial_spread + distance;
