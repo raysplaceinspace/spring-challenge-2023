@@ -10,7 +10,7 @@ pub struct NearbyPathMap {
     distance_to_nearest: Box<[i32]>,
 }
 impl NearbyPathMap {
-    pub fn generate(layout: &Layout, is_present: impl Fn(usize) -> bool) -> Self {
+    pub fn generate(layout: &Layout, cells: impl Iterator<Item=usize>) -> Self {
         let num_cells = layout.cells.len();
         let mut distance_to_nearest = Vec::new();
         distance_to_nearest.resize(num_cells, i32::MAX);
@@ -19,12 +19,15 @@ impl NearbyPathMap {
             distance_to_nearest: distance_to_nearest.into_boxed_slice(),
         };
 
-        nearby.extend((0..num_cells).filter(|&cell| is_present(cell)), layout);
+        nearby.extend(cells, layout);
         nearby
     }
 
     pub fn near_my_ants(player: usize, view: &View, state: &State) -> Self {
-        Self::generate(&view.layout, |cell| state.num_ants[player][cell] > 0)
+        Self::generate(
+            &view.layout,
+            state.num_ants[player].iter().cloned().enumerate()
+            .filter_map(|(cell,num_ants)| if num_ants > 0 { Some(cell) } else { None }))
     }
 
     pub fn extend(&mut self, cells: impl Iterator<Item=usize>, layout: &Layout) {

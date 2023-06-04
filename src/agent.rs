@@ -56,8 +56,8 @@ impl Agent {
         self.plan = best.plan;
         actions
 
-        /*
         // Uncomment this to visualise the opponent's countermoves
+        /*
         let moves = opponents::enact_countermoves(ME, view, state);
         movement::assignments_to_actions(&moves.assignments)
         */
