@@ -6,7 +6,7 @@ use super::view::*;
 use super::opponents;
 use super::planning::{self,*};
 use super::solving::Solver;
-use super::valuation::HarvestAndSpawnEvaluator;
+use super::valuation::SpawnEvaluator;
 
 const SEARCH_MS: u128 = 90;
 
@@ -29,8 +29,8 @@ impl Agent {
         let (initial, best, stats) = self.solver.solve(SEARCH_MS, initial_plan, view, state, &mut self.rng);
 
         let harvests = [
-            HarvestAndSpawnEvaluator::new(ME, view, state),
-            HarvestAndSpawnEvaluator::new(ENEMY, view, state),
+            SpawnEvaluator::new(ME, view, state),
+            SpawnEvaluator::new(ENEMY, view, state),
         ];
 
         let commands = planning::enact_plan(ME, &best.plan, view, state);
@@ -55,5 +55,11 @@ impl Agent {
 
         self.plan = best.plan;
         actions
+
+        /*
+        // Uncomment this to visualise the opponent's countermoves
+        let moves = opponents::enact_countermoves(ME, view, state);
+        movement::assignments_to_actions(&moves.assignments)
+        */
     }
 }

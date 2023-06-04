@@ -4,7 +4,7 @@ use std::fmt::Display;
 use super::inputs::NUM_PLAYERS;
 use super::harvesting;
 use super::movement;
-use super::valuation::{NumHarvests,HarvestEvaluator};
+use super::valuation::HarvestEvaluator;
 use super::pathing::NearbyPathMap;
 use super::view::*;
 
@@ -40,9 +40,8 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     let enemy = (player + 1) % NUM_PLAYERS;
     let attack = harvesting::calculate_max_flow_for_player(enemy, view, &state.num_ants);
     let evaluator = HarvestEvaluator::new(player, state);
-    let mut counts = NumHarvests::new();
 
-    let mut targets = Vec::new();
+    let mut harvests = Vec::new();
     let mut unused_bases: FnvHashSet<_> = view.layout.bases[player].iter().copied().collect();
     let mut beacons = FnvHashSet::default();
 
@@ -50,7 +49,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
     for milestone in plan.iter() {
         match milestone {
             Milestone::Barrier => {
-                if !targets.is_empty() { break } // Barriers tell us to stop finding new targets if we already have some
+                if !harvests.is_empty() { break } // Barriers tell us to stop finding new targets if we already have some
             },
 
             &Milestone::Harvest(target) => {
@@ -61,14 +60,13 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
                     (distance, beacon)
                 }).min().expect("no beacons");
 
-                let content = view.layout.cells[target].content;
-                let new_counts = counts.clone().add(content);
+                let num_harvests = harvests.len() as i32;
 
                 let initial_spread = beacons.len() as i32;
-                let initial_collection_rate = evaluator.calculate_harvest_rate(&counts, initial_spread);
+                let initial_collection_rate = evaluator.calculate_harvest_rate(num_harvests, initial_spread);
 
                 let new_spread = initial_spread + distance;
-                let new_collection_rate = evaluator.calculate_harvest_rate(&new_counts, new_spread);
+                let new_collection_rate = evaluator.calculate_harvest_rate(num_harvests + 1, new_spread);
                 if new_collection_rate > initial_collection_rate {
                     let ants_per_cell = state.total_ants[player] / new_spread;
                     for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
@@ -77,9 +75,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
                         beacons.insert(cell);
                         unused_bases.remove(&cell);
                     }
-                    targets.push(target);
-
-                    counts = new_counts;
+                    harvests.push(target);
 
                 } else {
                     // Best harvest not worth it, so none others will be either
@@ -91,21 +87,21 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
 
     Commands {
         assignments: movement::spread_ants_across_beacons(beacons.into_iter(), player, view, state),
-        targets,
+        harvests,
     }
 }
 
 pub struct Commands {
     pub assignments: Box<[i32]>,
-    pub targets: Vec<usize>,
+    pub harvests: Vec<usize>,
 }
 impl Display for Commands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.targets.is_empty() {
+        if self.harvests.is_empty() {
             write!(f, "-")?;
         } else {
             let mut is_first = true;
-            for &target in self.targets.iter() {
+            for &target in self.harvests.iter() {
                 if is_first {
                     is_first = false;
                 } else {
