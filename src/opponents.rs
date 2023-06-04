@@ -50,27 +50,28 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
         let initial_harvests = harvests.len() as i32;
         let initial_spread = beacons.len() as i32;
+        let initial_collection_rate = evaluator.calculate_harvest_rate(initial_harvests, initial_spread);
 
         // Find closest next target
-        if let Some((_, extra_spread, target)) =
+        if let Some((_, _, target)) =
             countermoves.iter()
             .filter_map(|&target| {
                 let extra_spread = harvest_mesh.distance_to(target);
                 if initial_spread + extra_spread > total_ants { return None } // Not enough ants to reach this target
 
+                let new_collection_rate = evaluator.calculate_harvest_rate(initial_harvests + 1, initial_spread + extra_spread);
+                if new_collection_rate <= initial_collection_rate { return None } // This target is not worth the effort
+
                 let mut ticks_lost = nearby.distance_to(target);
                 if view.layout.cells[target].content == Some(Content::Eggs) {
                     // Treat eggs as closer than they are if harvesting them saves ticks rather than costs them
                     let harvest_per_tick = total_ants / (initial_spread + extra_spread);
-                    ticks_lost -= spawner.calculate_ticks_saved_harvesting_eggs(harvest_per_tick).floor() as i32;
+                    let num_eggs = harvest_per_tick.min(state.resources[target]);
+                    ticks_lost -= spawner.calculate_ticks_saved_harvesting_eggs(num_eggs).floor() as i32;
                 }
 
                 Some((ticks_lost, extra_spread, target))
             }).min() {
-
-            let initial_collection_rate = evaluator.calculate_harvest_rate(initial_harvests, initial_spread);
-            let new_collection_rate = evaluator.calculate_harvest_rate(initial_harvests + 1, initial_spread + extra_spread);
-            if new_collection_rate <= initial_collection_rate { break } // This target is not worth the effort
 
             harvests.push(target);
             countermoves.remove(&target);
