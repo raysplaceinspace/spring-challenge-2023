@@ -57,6 +57,8 @@ impl HarvestEvaluator {
 }
 
 pub struct HarvestAndSpawnEvaluator {
+    #[allow(dead_code)]
+    player: usize,
     total_ants: i32,
     ticks_to_harvest_remaining_crystals: i32,
     remaining_ticks_proportion: f32,
@@ -86,9 +88,25 @@ impl HarvestAndSpawnEvaluator {
         }
 
         Self {
+            player,
             total_ants,
             remaining_ticks_proportion,
             ticks_to_harvest_remaining_crystals,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_worth_harvesting(&self, cell: usize, view: &View, state: &State) -> bool {
+        if state.resources[cell] <= 0 { return false }
+
+        match view.layout.cells[cell].content {
+            None => false,
+            Some(Content::Crystals) => true,
+            Some(Content::Eggs) => {
+                let distance = view.distance_to_closest_base[self.player][cell];
+                let harvest_per_tick = self.total_ants / distance;
+                self.calculate_ticks_saved_harvesting_eggs(harvest_per_tick) >= 1.0 // only harvest if we can save more ticks than we lose
+            },
         }
     }
 

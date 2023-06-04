@@ -37,13 +37,13 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let total_ants = state.total_ants[player];
 
     // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
+    let evaluator = HarvestAndSpawnEvaluator::new(player, view, state);
     let flow_distance_from_base = calculate_flow_distance_from_base(player, view, state);
     let (mut counts, busy) = identify_busy_ants(player, view, state, &flow_distance_from_base);
     let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
     let mut beacon_mesh: Option<NearbyPathMap> = None;
 
     // Extend to collect nearby crystals
-    let evaluator = HarvestAndSpawnEvaluator::new(player, view, state);
     let mut countermoves: FnvHashSet<usize> =
         (0..num_cells)
         .filter(|&cell| !busy[cell] && state.resources[cell] > 0)

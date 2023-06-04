@@ -13,12 +13,14 @@ pub struct Endgame {
     pub tick: u32,
     pub crystals: CrystalsPerPlayer,
     pub total_ants: [i32; NUM_PLAYERS],
+    pub winner: Option<usize>,
 }
 
 pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
+    let mut winner = None;
     for age in 0..NUM_TICKS {
         let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plan, view, &state);
         let Countermoves { assignments: enemy_assignments, .. } = opponents::enact_countermoves(ENEMY, view, &state);
@@ -35,8 +37,9 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
             payoff += evaluate_harvesting(player, state.crystals[player], initial_crystals[player], age);
         }
 
-        if let Some(winner) = view::find_winner(view, &state) {
-            payoff += evaluate_win(winner, age);
+        if let Some(w) = view::find_winner(view, &state) {
+            payoff += evaluate_win(w, age);
+            winner = Some(w);
             break;
         }
 
@@ -47,6 +50,7 @@ pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgam
         tick: state.tick,
         crystals: state.crystals,
         total_ants: state.total_ants,
+        winner,
     };
     (payoff, endgame)
 }
