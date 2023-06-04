@@ -24,6 +24,10 @@ impl Milestone {
             },
             Self::Barrier => harvested_yet,
         });
+
+        // Barriers are pointless at the end - pop them all off
+        while let Some(Milestone::Barrier) = plan.last() { plan.pop(); }
+
         plan
     }
 }
