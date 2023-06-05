@@ -24,6 +24,7 @@ pub struct View {
     /// player -> cell containing resources, sorted nearest to farthest
     pub closest_crystals: ClosestResourcesPerPlayer,
     pub closest_eggs: ClosestResourcesPerPlayer,
+    pub closest_resources: ClosestResourcesPerPlayer,
 }
 impl View {
     pub fn new(layout: Layout) -> Self {
@@ -46,13 +47,18 @@ impl View {
                 .sum(),
 
             closest_crystals: [
-                Self::find_closest_resources(Content::Crystals, ME, &layout, &paths),
-                Self::find_closest_resources(Content::Crystals, ENEMY, &layout, &paths),
+                Self::find_closest_resources(ME, &layout, &paths, |c| c == Some(Content::Crystals)),
+                Self::find_closest_resources(ENEMY, &layout, &paths, |c| c == Some(Content::Crystals)),
             ],
 
             closest_eggs: [
-                Self::find_closest_resources(Content::Eggs, ME, &layout, &paths),
-                Self::find_closest_resources(Content::Eggs, ENEMY, &layout, &paths),
+                Self::find_closest_resources(ME, &layout, &paths, |c| c == Some(Content::Eggs)),
+                Self::find_closest_resources(ENEMY, &layout, &paths, |c| c == Some(Content::Eggs)),
+            ],
+
+            closest_resources: [
+                Self::find_closest_resources(ME, &layout, &paths, |c| c.is_some()),
+                Self::find_closest_resources(ENEMY, &layout, &paths, |c| c.is_some()),
             ],
 
             closest_bases,
@@ -80,8 +86,8 @@ impl View {
         distances.into_boxed_slice()
     }
 
-    fn find_closest_resources(content: Content, player: usize, layout: &Layout, paths: &PathMap) -> ClosestResources {
-        let mut closest_resources: Vec<usize> = (0..layout.cells.len()).filter(|&cell| layout.cells[cell].content == Some(content)).collect();
+    fn find_closest_resources(player: usize, layout: &Layout, paths: &PathMap, predicate: impl Fn(Option<Content>) -> bool) -> ClosestResources {
+        let mut closest_resources: Vec<usize> = (0..layout.cells.len()).filter(|&cell| predicate(layout.cells[cell].content)).collect();
         closest_resources.sort_by_cached_key(|&resource| {
             layout.bases[player].iter().map(|&base| {
                 paths.distance_between(base, resource)
