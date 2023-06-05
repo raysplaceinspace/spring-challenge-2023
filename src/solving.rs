@@ -1,6 +1,5 @@
 use rand::prelude::*;
 use std::fmt::Display;
-use std::time::Instant;
 use super::evaluation::{self,Endgame};
 use super::inputs::{ME,ENEMY};
 use super::planning::Milestone;
@@ -30,14 +29,22 @@ enum Lesson {
     Mutation(Mutation),
 }
 
+#[derive(Default)]
 pub struct SolverStats {
-    pub num_evaluated: i32,
-    pub num_generations: i32,
-    pub num_mutations: i32,
-    pub num_successful_generations: i32,
-    pub num_successful_mutations: i32,
-    pub elapsed_ms: u128,
+    num_evaluated: i32,
+    num_iterations: [i32; NUM_SOLVERS],
+    num_successes: [i32; NUM_SOLVERS],
 }
+impl SolverStats {
+    pub fn num_evaluated(&self) -> i32 { self.num_evaluated }
+
+    pub fn num_mutations(&self) -> i32 { self.num_iterations[SolverType::Mutation as usize] }
+    pub fn num_successful_mutations(&self) -> i32 { self.num_successes[SolverType::Mutation as usize] }
+
+    pub fn num_generations(&self) -> i32 { self.num_iterations[SolverType::Generation as usize] }
+    pub fn num_successful_generations(&self) -> i32 { self.num_successes[SolverType::Generation as usize] }
+}
+
 pub struct Solver {
     player: usize,
     solver_quantiles: [f32; NUM_SOLVERS],
@@ -54,73 +61,42 @@ impl Solver {
         }
     }
 
-    pub fn solve(
-        &mut self,
-        search_ms: u128,
-        initial_plan: Vec<Milestone>,
-        countermoves: &Vec<Milestone>,
-        view: &View,
-        state: &State,
-        rng: &mut StdRng) -> (Candidate,Candidate,SolverStats) {
+    pub fn step(&mut self, session: &mut SolverSession, countermoves: &Vec<Milestone>, view: &View, state: &State, rng: &mut StdRng) {
+        // Generate solution
+        let solver = SOLVERS[select_weighted(&self.solver_quantiles, rng)];
+        let (plan, lesson) = match solver {
+            SolverType::Generation => {
+                let (plan, walks) = self.generator.generate(rng, |cell| {
+                    state.resources[cell] > 0
+                });
+                (plan, Lesson::Generation(walks))
+            },
+            SolverType::Mutation => {
+                let mut plan = session.best.plan.clone();
+                let mutation = self.mutator.mutate(&mut plan, rng);
+                (plan, Lesson::Mutation(mutation))
+            },
+        };
+        session.stats.num_iterations[solver as usize] += 1;
 
-        let start = Instant::now();
-        let initial = Candidate::evaluate(self.player, initial_plan, countermoves, view, state);
-        let mut best = initial.clone();
+        // Evaluate solution
+        let candidate = Candidate::evaluate(self.player, plan, countermoves, view, state);
+        session.stats.num_evaluated += 1;
 
-        let mut num_evaluated: i32 = 1;
-        let mut num_iterations = [0; NUM_SOLVERS];
-        let mut num_successes = [0; NUM_SOLVERS];
-
-        let mut scorer = QuantileEstimator::new();
-        scorer.insert(best.score);
-
-        while start.elapsed().as_millis() < search_ms {
-            // Generate solution
-            let solver = SOLVERS[select_weighted(&self.solver_quantiles, rng)];
-            let (plan, lesson) = match solver {
-                SolverType::Generation => {
-                    let (plan, walks) = self.generator.generate(rng, |cell| {
-                        state.resources[cell] > 0
-                    });
-                    (plan, Lesson::Generation(walks))
-                },
-                SolverType::Mutation => {
-                    let mut plan = best.plan.clone();
-                    let mutation = self.mutator.mutate(&mut plan, rng);
-                    (plan, Lesson::Mutation(mutation))
-                },
-            };
-            num_iterations[solver as usize] += 1;
-
-            // Evaluate solution
-            let candidate = Candidate::evaluate(self.player, plan, countermoves, view, state);
-            num_evaluated += 1;
-
-            // Learn quantiles
-            let quantile = scorer.quantile(candidate.score);
-            scorer.insert(candidate.score);
-            learn_quantile(&mut self.solver_quantiles[solver as usize], quantile);
-            match lesson {
-                Lesson::Generation(walks) => self.generator.learn(quantile, &walks),
-                Lesson::Mutation(mutation) => self.mutator.learn(quantile, mutation),
-            }
-
-            // Update best
-            if candidate.is_improvement(&best) {
-                best = candidate;
-                num_successes[solver as usize] += 1;
-            }
+        // Learn quantiles
+        let quantile = session.scorer.quantile(candidate.score);
+        session.scorer.insert(candidate.score);
+        learn_quantile(&mut self.solver_quantiles[solver as usize], quantile);
+        match lesson {
+            Lesson::Generation(walks) => self.generator.learn(quantile, &walks),
+            Lesson::Mutation(mutation) => self.mutator.learn(quantile, mutation),
         }
 
-        let stats = SolverStats {
-            num_evaluated,
-            num_generations: num_iterations[SolverType::Generation as usize],
-            num_mutations: num_iterations[SolverType::Mutation as usize],
-            num_successful_generations: num_successes[SolverType::Generation as usize],
-            num_successful_mutations: num_successes[SolverType::Mutation as usize],
-            elapsed_ms: start.elapsed().as_millis() as u128,
-        };
-        (initial, best, stats)
+        // Update best
+        if candidate.is_improvement(&session.best) {
+            session.best = candidate;
+            session.stats.num_successes[solver as usize] += 1;
+        }
     }
 }
 impl Display for Solver {
@@ -137,6 +113,22 @@ impl Display for Solver {
     }
 }
 
+pub struct SolverSession {
+    pub stats: SolverStats,
+    pub best: Candidate,
+
+    scorer: QuantileEstimator,
+}
+impl SolverSession {
+    pub fn new(initial: Candidate) -> Self {
+        Self {
+            stats: SolverStats::default(),
+            scorer: QuantileEstimator::new(),
+            best: initial,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Candidate {
     pub plan: Vec<Milestone>,
@@ -144,7 +136,7 @@ pub struct Candidate {
     pub endgame: Endgame,
 }
 impl Candidate {
-    pub(self) fn evaluate(player: usize, plan: Vec<Milestone>, countermoves: &Vec<Milestone>, view: &View, state: &State) -> Self {
+    pub fn evaluate(player: usize, plan: Vec<Milestone>, countermoves: &Vec<Milestone>, view: &View, state: &State) -> Self {
         let plans = match player {
             ME => [&plan, countermoves],
             ENEMY => [countermoves, &plan],

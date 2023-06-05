@@ -1,14 +1,15 @@
+use std::time::Instant;
+
 use rand::prelude::*;
 
 use super::inputs::*;
 use super::movement;
 use super::view::*;
 use super::planning::{self,*};
-use super::solving::Solver;
+use super::solving::{Candidate,Solver,SolverSession};
 use super::valuation::SpawnEvaluator;
 
-const ADVERSARIAL_MS: u128 = 30;
-const SEARCH_MS: u128 = 60;
+const SEARCH_MS: u128 = 90;
 
 pub struct Agent {
     solvers: [Solver; NUM_PLAYERS],
@@ -28,7 +29,6 @@ impl Agent {
     }
 
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
-        let mut num_evaluated = 0;
         eprintln!("Crystals: me={}, enemy={}", state.crystals[0], state.crystals[1]);
         eprintln!("Ants: me={}, enemy={}", state.total_ants[0], state.total_ants[1]);
 
@@ -36,19 +36,44 @@ impl Agent {
             Milestone::reap(plan, state);
         }
 
-        let (initial, adversary, stats) =
-            self.solvers[ENEMY].solve(ADVERSARIAL_MS, self.plans[ENEMY].clone(), &self.plans[ME], view, state, &mut self.rng);
-        eprintln!("{:.0} -> {:.0} -> found adversarial plan in {:.0} ms ({} iterations)", -initial.score, -adversary.score, stats.elapsed_ms as f32, stats.num_evaluated);
-        eprintln!("Successful: {}/{} generations, {}/{} mutations", stats.num_successful_generations, stats.num_generations, stats.num_successful_mutations, stats.num_mutations);
-        self.plans[ENEMY] = adversary.plan.clone();
-        num_evaluated += stats.num_evaluated;
+        let mut my_session = SolverSession::new(Candidate::evaluate(ME, self.plans[ME].clone(), &self.plans[ENEMY], view, state));
+        let mut enemy_session = SolverSession::new(Candidate::evaluate(ENEMY, self.plans[ENEMY].clone(), &self.plans[ME], view, state));
 
-        let (initial, best, stats) =
-            self.solvers[ME].solve(SEARCH_MS, self.plans[ME].clone(), &self.plans[ENEMY], view, state, &mut self.rng);
-        eprintln!("{:.0} -> {:.0} -> found best plan in {:.0} ms ({} iterations)", initial.score, best.score, stats.elapsed_ms as f32, stats.num_evaluated);
-        eprintln!("Successful: {}/{} generations, {}/{} mutations", stats.num_successful_generations, stats.num_generations, stats.num_successful_mutations, stats.num_mutations);
-        self.plans[ME] = best.plan.clone();
-        num_evaluated += stats.num_evaluated;
+        let initial_score = my_session.best.score;
+        eprintln!("Initial: {}", my_session.best);
+
+        let start = Instant::now();
+        let mut iteration = 0;
+        while start.elapsed().as_millis() < SEARCH_MS {
+            let player = iteration % NUM_PLAYERS;
+
+            let (session, countermoves) =
+                if player == ME {
+                    (&mut my_session, &enemy_session.best.plan)
+                } else {
+                    (&mut enemy_session, &my_session.best.plan)
+                };
+            self.solvers[player].step(session, countermoves, view, state, &mut self.rng);
+
+            iteration += 1;
+        }
+        self.plans[ME] = my_session.best.plan.clone();
+        self.plans[ENEMY] = enemy_session.best.plan.clone();
+
+        let best = my_session.best;
+        let adversary = enemy_session.best;
+        let stats = [my_session.stats, enemy_session.stats];
+
+        let num_evaluated = stats.iter().map(|s| s.num_evaluated()).sum::<i32>();
+        eprintln!("{:.0} -> {:.0} -> found best plan in {:.0} ms ({} iterations)",
+            initial_score, best.score,
+            start.elapsed().as_millis() as f32,
+            num_evaluated);
+        eprintln!("Successful: {}/{} generations, {}/{} mutations",
+            stats.iter().map(|s| s.num_successful_generations()).sum::<i32>(),
+            stats.iter().map(|s| s.num_generations()).sum::<i32>(),
+            stats.iter().map(|s| s.num_successful_mutations()).sum::<i32>(),
+            stats.iter().map(|s| s.num_mutations()).sum::<i32>());
 
         let harvests = [
             SpawnEvaluator::new(ME, view, state),
@@ -61,7 +86,6 @@ impl Agent {
         let mut actions = movement::assignments_to_actions(&commands.assignments);
         actions.push(Action::Message { text: format!("{}", num_evaluated) });
 
-        eprintln!("Initial: {}", initial);
         eprintln!("Best: {}", best);
         eprintln!(
             "Endgame: tick={}, crystals=[{} vs {}], ants=[{} vs {}]",
