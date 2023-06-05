@@ -59,7 +59,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
             .filter_map(|&target| {
                 let extra_spread = harvest_mesh.distance_to(target);
                 let new_collection_rate = evaluator.calculate_harvest_rate(initial_harvests + 1, initial_spread + extra_spread);
-                if new_collection_rate < initial_collection_rate { return None } // This target is not worth the effort
+                if new_collection_rate <= initial_collection_rate { return None } // This target is not worth the effort
 
                 let mut ticks_lost = nearby.distance_to(target);
                 if view.layout.cells[target].content == Some(Content::Eggs) {
