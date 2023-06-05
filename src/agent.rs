@@ -39,6 +39,8 @@ impl Agent {
         let mut actions = movement::assignments_to_actions(&commands.assignments);
         actions.push(Action::Message { text: format!("{}", stats.num_evaluated) });
 
+        eprintln!("Crystals: me={}, enemy={}", state.crystals[0], state.crystals[1]);
+        eprintln!("Ants: me={}, enemy={}", state.total_ants[0], state.total_ants[1]);
         eprintln!("{}: found best plan in {:.0} ms ({} iterations)", state.tick, stats.elapsed_ms as f32, stats.num_evaluated);
         eprintln!("Successful: {}/{} generations, {}/{} mutations", stats.num_successful_generations, stats.num_generations, stats.num_successful_mutations, stats.num_mutations);
         eprintln!("Initial: {}", initial);

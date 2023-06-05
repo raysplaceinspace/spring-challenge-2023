@@ -31,7 +31,6 @@ fn main() {
 
         // Calculate new state
         let state = State::new(tick, num_ants_per_cell, resources_per_cell, crystals_per_player);
-        eprintln!("Harvested: me={}, enemy={}", state.crystals[0], state.crystals[1]);
 
         // Calculate actions
         let actions = agent.act(&view, &state);
