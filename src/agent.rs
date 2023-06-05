@@ -40,7 +40,7 @@ impl Agent {
 
         let mut enemy_session = SolverSession::new(Candidate::evaluate(ENEMY, self.plans[ENEMY].clone(), &self.plans[ME], view, state));
         let initial_adversarial_score = -enemy_session.best.score;
-        while start.elapsed().as_millis() < SEARCH_MS {
+        while start.elapsed().as_millis() < ADVERSARY_MS {
             self.solvers[ENEMY].step(&mut enemy_session, &self.plans[ME], view, state, &mut self.rng);
         }
         self.plans[ENEMY] = enemy_session.best.plan.clone();
