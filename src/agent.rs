@@ -39,6 +39,7 @@ impl Agent {
         }
 
         let mut enemy_session = SolverSession::new(Candidate::evaluate(ENEMY, self.plans[ENEMY].clone(), &self.plans[ME], view, state));
+        let initial_adversarial_score = -enemy_session.best.score;
         while start.elapsed().as_millis() < SEARCH_MS {
             self.solvers[ENEMY].step(&mut enemy_session, &self.plans[ME], view, state, &mut self.rng);
         }
@@ -57,8 +58,8 @@ impl Agent {
         let stats = [my_session.stats, enemy_session.stats];
 
         let num_evaluated = stats.iter().map(|s| s.num_evaluated()).sum::<i32>();
-        eprintln!("{:.0} -> {:.0} -> found best plan in {:.0} ms ({} iterations)",
-            initial_score, best.score,
+        eprintln!("{:.0} -> {:.0} -> {:.0} -> found best plan in {:.0} ms ({} iterations)",
+            initial_adversarial_score, initial_score, best.score,
             start.elapsed().as_millis() as f32,
             num_evaluated);
         eprintln!("Successful: {}/{} generations, {}/{} mutations",
