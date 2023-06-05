@@ -9,8 +9,8 @@ use super::planning::{self,*};
 use super::solving::{Candidate,Solver,SolverSession};
 use super::valuation::SpawnEvaluator;
 
-const SEARCH_MS: u128 = 90;
-const SELF_OPTIMIZE_FRACTION: f32 = 0.75;
+const ADVERSARY_MS: u128 = 30;
+const SEARCH_MS: u128 = 60;
 
 pub struct Agent {
     solvers: [Solver; NUM_PLAYERS],
@@ -30,6 +30,7 @@ impl Agent {
     }
 
     pub fn act(&mut self, view: &View, state: &State) -> Vec<Action> {
+        let start = Instant::now();
         eprintln!("Crystals: me={}, enemy={}", state.crystals[0], state.crystals[1]);
         eprintln!("Ants: me={}, enemy={}", state.total_ants[0], state.total_ants[1]);
 
@@ -37,26 +38,19 @@ impl Agent {
             Milestone::reap(plan, state);
         }
 
-        let mut my_session = SolverSession::new(Candidate::evaluate(ME, self.plans[ME].clone(), &self.plans[ENEMY], view, state));
         let mut enemy_session = SolverSession::new(Candidate::evaluate(ENEMY, self.plans[ENEMY].clone(), &self.plans[ME], view, state));
+        while start.elapsed().as_millis() < SEARCH_MS {
+            self.solvers[ENEMY].step(&mut enemy_session, &self.plans[ME], view, state, &mut self.rng);
+        }
+        self.plans[ENEMY] = enemy_session.best.plan.clone();
 
+        let mut my_session = SolverSession::new(Candidate::evaluate(ME, self.plans[ME].clone(), &self.plans[ENEMY], view, state));
         let initial_score = my_session.best.score;
         eprintln!("Initial: {}", my_session.best);
-
-        let start = Instant::now();
-        while start.elapsed().as_millis() < SEARCH_MS {
-            let player = if self.rng.gen::<f32>() < SELF_OPTIMIZE_FRACTION { ME } else { ENEMY };
-
-            let (session, countermoves) =
-                if player == ME {
-                    (&mut my_session, &enemy_session.best.plan)
-                } else {
-                    (&mut enemy_session, &my_session.best.plan)
-                };
-            self.solvers[player].step(session, countermoves, view, state, &mut self.rng);
+        while start.elapsed().as_millis() < SEARCH_MS + ADVERSARY_MS {
+            self.solvers[ME].step(&mut my_session, &self.plans[ENEMY], view, state, &mut self.rng);
         }
         self.plans[ME] = my_session.best.plan.clone();
-        self.plans[ENEMY] = enemy_session.best.plan.clone();
 
         let best = my_session.best;
         let adversary = enemy_session.best;
