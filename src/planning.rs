@@ -1,8 +1,6 @@
 use super::fnv::FnvHashSet;
 use std::fmt::Display;
 
-use super::inputs::NUM_PLAYERS;
-use super::harvesting;
 use super::movement;
 use super::valuation::HarvestEvaluator;
 use super::pathing::NearbyPathMap;
@@ -41,8 +39,6 @@ impl Display for Milestone {
 }
 
 pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State) -> Commands {
-    let enemy = (player + 1) % NUM_PLAYERS;
-    let attack = harvesting::calculate_max_flow_for_player(enemy, view, &state.num_ants);
     let evaluator = HarvestEvaluator::new(player, state);
 
     let mut harvests = Vec::new();
@@ -72,10 +68,7 @@ pub fn enact_plan(player: usize, plan: &[Milestone], view: &View, state: &State)
                 let new_spread = initial_spread + distance;
                 let new_collection_rate = evaluator.calculate_harvest_rate(num_harvests + 1, new_spread);
                 if new_collection_rate > initial_collection_rate {
-                    let ants_per_cell = state.total_ants[player] / new_spread;
                     for cell in nearby.calculate_path(source, target, &view.layout, &view.paths) {
-                        if attack[cell] > ants_per_cell { break } // Stop if we cannot gain anything from harvesting this cell
-
                         beacons.insert(cell);
                         unused_bases.remove(&cell);
                     }
