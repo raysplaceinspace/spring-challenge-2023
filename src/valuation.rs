@@ -54,6 +54,7 @@ impl SpawnEvaluator {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_worth_harvesting(&self, cell: usize, view: &View, state: &State, travel_ticks: i32) -> bool {
         if state.resources[cell] <= 0 { return false }
 

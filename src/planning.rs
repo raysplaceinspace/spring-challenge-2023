@@ -14,7 +14,7 @@ pub enum Milestone {
     Barrier,
 }
 impl Milestone {
-    pub fn reap(mut plan: Vec<Milestone>, state: &State) -> Vec<Milestone> {
+    pub fn reap(plan: &mut Vec<Milestone>, state: &State) {
         let mut harvested_yet = false;
         plan.retain(|milestone| match milestone {
             Self::Harvest(cell) => {
@@ -27,8 +27,6 @@ impl Milestone {
 
         // Barriers are pointless at the end - pop them all off
         while let Some(Milestone::Barrier) = plan.last() { plan.pop(); }
-
-        plan
     }
 }
 impl Display for Milestone {

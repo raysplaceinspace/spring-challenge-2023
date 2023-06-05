@@ -2,6 +2,7 @@ use rand::prelude::*;
 use std::fmt::Display;
 use std::time::Instant;
 use super::evaluation::{self,Endgame};
+use super::inputs::{ME,ENEMY};
 use super::planning::Milestone;
 use super::view::*;
 
@@ -38,6 +39,7 @@ pub struct SolverStats {
     pub elapsed_ms: u128,
 }
 pub struct Solver {
+    player: usize,
     solver_quantiles: [f32; NUM_SOLVERS],
     generator: PheromoneMatrix,
     mutator: Mutator,
@@ -45,6 +47,7 @@ pub struct Solver {
 impl Solver {
     pub fn new(player: usize, view: &View) -> Self {
         Self {
+            player,
             solver_quantiles: [INITIAL_QUANTILE; NUM_SOLVERS],
             generator: PheromoneMatrix::new(player, view),
             mutator: Mutator::new(),
@@ -55,12 +58,13 @@ impl Solver {
         &mut self,
         search_ms: u128,
         initial_plan: Vec<Milestone>,
+        countermoves: &Vec<Milestone>,
         view: &View,
         state: &State,
         rng: &mut StdRng) -> (Candidate,Candidate,SolverStats) {
 
         let start = Instant::now();
-        let initial = Candidate::evaluate(initial_plan, view, state);
+        let initial = Candidate::evaluate(self.player, initial_plan, countermoves, view, state);
         let mut best = initial.clone();
 
         let mut num_evaluated: i32 = 1;
@@ -89,7 +93,7 @@ impl Solver {
             num_iterations[solver as usize] += 1;
 
             // Evaluate solution
-            let candidate = Candidate::evaluate(plan, view, state);
+            let candidate = Candidate::evaluate(self.player, plan, countermoves, view, state);
             num_evaluated += 1;
 
             // Learn quantiles
@@ -140,8 +144,18 @@ pub struct Candidate {
     pub endgame: Endgame,
 }
 impl Candidate {
-    pub(self) fn evaluate(plan: Vec<Milestone>, view: &View, state: &State) -> Self {
-        let (score, endgame) = evaluation::rollout(&plan, view, state);
+    pub(self) fn evaluate(player: usize, plan: Vec<Milestone>, countermoves: &Vec<Milestone>, view: &View, state: &State) -> Self {
+        let plans = match player {
+            ME => [&plan, countermoves],
+            ENEMY => [countermoves, &plan],
+            unknown => panic!("Unknown player: {}", unknown),
+        };
+        let (payoff, endgame) = evaluation::rollout(plans, view, state);
+        let score = match player {
+            ME => payoff,
+            ENEMY => -payoff,
+            unknown => panic!("Unknown player: {}", unknown),
+        };
         Self { plan, score, endgame }
     }
 

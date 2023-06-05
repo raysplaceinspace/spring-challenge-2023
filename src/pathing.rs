@@ -50,6 +50,7 @@ impl NearbyPathMap {
         }
     }
 
+    #[allow(dead_code)]
     pub fn nearest(&self, target: usize, layout: &Layout) -> usize {
         let mut current = target;
         loop {
@@ -59,6 +60,7 @@ impl NearbyPathMap {
         }
     }
 
+    #[allow(dead_code)]
     pub fn distance_to(&self, cell: usize) -> i32 {
         self.distance_to_nearest[cell]
     }

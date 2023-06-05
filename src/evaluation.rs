@@ -1,6 +1,5 @@
 use super::planning::{self,*};
 use super::inputs::*;
-use super::opponents::{self,Countermoves};
 use super::simulation;
 use super::view::{self,*};
 
@@ -16,14 +15,14 @@ pub struct Endgame {
     pub winner: Option<usize>,
 }
 
-pub fn rollout(plan: &Vec<Milestone>, view: &View, state: &State) -> (f32,Endgame) {
+pub fn rollout(plans: [&Vec<Milestone>; NUM_PLAYERS], view: &View, state: &State) -> (f32,Endgame) {
     let mut payoff = 0.0;
 
     let mut state = state.clone();
     let mut winner = None;
     for age in 0..NUM_TICKS {
-        let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, plan, view, &state);
-        let Countermoves { assignments: enemy_assignments, .. } = opponents::enact_countermoves(ENEMY, view, &state);
+        let Commands { assignments: my_assignments, .. } = planning::enact_plan(ME, &plans[ME], view, &state);
+        let Commands { assignments: enemy_assignments, .. } = planning::enact_plan(ENEMY, &plans[ENEMY], view, &state);
 
         let assignments = [
             my_assignments,
