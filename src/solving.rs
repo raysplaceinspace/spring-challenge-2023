@@ -456,14 +456,18 @@ pub enum Mutation {
     Bubble,
     Move,
     Swap,
+    Shift,
+    Reverse,
     Barrier,
 }
 
-const NUM_MUTATIONS: usize = 4;
+const NUM_MUTATIONS: usize = 6;
 const MUTATIONS: [Mutation; NUM_MUTATIONS] = [
     Mutation::Bubble,
     Mutation::Move,
     Mutation::Swap,
+    Mutation::Shift,
+    Mutation::Reverse,
     Mutation::Barrier,
 ];
 
@@ -483,6 +487,8 @@ impl Mutator {
             Mutation::Bubble => bubble_mutation(plan, rng),
             Mutation::Move => move_mutation(plan, rng),
             Mutation::Swap => swap_mutation(plan, rng),
+            Mutation::Shift => shift_mutation(plan, rng),
+            Mutation::Reverse => reverse_mutation(plan, rng),
             Mutation::Barrier => barrier_mutation(plan, rng),
         };
         mutation
@@ -534,6 +540,26 @@ fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
     if to >= from { to += 1 }
 
     plan.swap(from, to);
+}
+
+fn shift_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let length = rng.gen_range(1 .. plan.len());
+    let from = rng.gen_range(0 .. (plan.len() - length + 1));
+    let mut to = rng.gen_range(0 .. (plan.len() - length));
+    if to >= from { to += 1 }
+
+    let elems: Vec<Milestone> = plan.splice(from .. (from + length), std::iter::empty()).collect();
+    plan.splice(to .. to, elems);
+}
+
+fn reverse_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let length = rng.gen_range(1 ..= plan.len());
+    let from = rng.gen_range(0 ..= (plan.len() - length));
+
+    let elems: Vec<Milestone> = plan.splice(from .. (from + length), std::iter::empty()).collect();
+    plan.splice(from .. from, elems.into_iter().rev());
 }
 
 fn barrier_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
