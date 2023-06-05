@@ -10,6 +10,7 @@ use super::solving::{Candidate,Solver,SolverSession};
 use super::valuation::SpawnEvaluator;
 
 const SEARCH_MS: u128 = 90;
+const SELF_OPTIMIZE_FRACTION: f32 = 0.8;
 
 pub struct Agent {
     solvers: [Solver; NUM_PLAYERS],
@@ -43,9 +44,8 @@ impl Agent {
         eprintln!("Initial: {}", my_session.best);
 
         let start = Instant::now();
-        let mut iteration = 0;
         while start.elapsed().as_millis() < SEARCH_MS {
-            let player = iteration % NUM_PLAYERS;
+            let player = if self.rng.gen::<f32>() < SELF_OPTIMIZE_FRACTION { ME } else { ENEMY };
 
             let (session, countermoves) =
                 if player == ME {
@@ -54,8 +54,6 @@ impl Agent {
                     (&mut enemy_session, &my_session.best.plan)
                 };
             self.solvers[player].step(session, countermoves, view, state, &mut self.rng);
-
-            iteration += 1;
         }
         self.plans[ME] = my_session.best.plan.clone();
         self.plans[ENEMY] = enemy_session.best.plan.clone();
