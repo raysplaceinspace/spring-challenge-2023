@@ -36,27 +36,27 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     let num_cells = view.layout.cells.len();
     let total_ants = state.total_ants[player];
 
-    // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
-    let (mut harvests, busy) = identify_busy_ants(player, view, state);
-    let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
-    let mut harvest_mesh = NearbyPathMap::generate(&view.layout, (0..num_cells).filter(|&cell| busy[cell] || view.distance_to_closest_base[player][cell] == 0));
-
     // Extend to collect nearby crystals
     let evaluator = HarvestEvaluator::new(player, state);
     let spawner = SpawnEvaluator::new(player, view, state);
     let nearby = NearbyPathMap::near_my_ants(player, view, state);
-    let mut countermoves: FnvHashSet<usize> =
+    let mut candidates: FnvHashSet<usize> =
         view.closest_resources[player].iter().cloned()
-        .filter(|&cell| !busy[cell] && spawner.is_worth_harvesting(cell, view, state, nearby.distance_to(cell)))
+        .filter(|&cell| spawner.is_worth_harvesting(cell, view, state, nearby.distance_to(cell)))
         .collect();
-    while !countermoves.is_empty() && (beacons.len() as i32) < total_ants {
+
+    // Keep ants at existing cells, but only if they are busy - otherwise they will be reassigned
+    let (mut harvests, busy) = identify_busy_ants(player, view, state, &mut candidates);
+    let mut beacons: FnvHashSet<usize> = (0..num_cells).filter(|&cell| busy[cell]).collect();
+    let mut harvest_mesh = NearbyPathMap::generate(&view.layout, (0..num_cells).filter(|&cell| busy[cell] || view.distance_to_closest_base[player][cell] == 0));
+    while !candidates.is_empty() && (beacons.len() as i32) < total_ants {
         let initial_harvests = harvests.len() as i32;
         let initial_spread = beacons.len() as i32;
         let initial_collection_rate = evaluator.calculate_harvest_rate(initial_harvests, initial_spread);
 
         // Find closest next target
         if let Some((_, _, target)) =
-            countermoves.iter()
+            candidates.iter()
             .filter_map(|&target| {
                 let extra_spread = harvest_mesh.distance_to(target);
                 let new_collection_rate = evaluator.calculate_harvest_rate(initial_harvests + 1, initial_spread + extra_spread);
@@ -74,7 +74,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
             }).min() {
 
             harvests.push(target);
-            countermoves.remove(&target);
+            candidates.remove(&target);
 
             let source = harvest_mesh.nearest(target, &view.layout);
             let path: Vec<usize> = nearby.calculate_path(source, target, &view.layout, &view.paths).collect();
@@ -92,7 +92,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
     }
 }
 
-fn identify_busy_ants(player: usize, view: &View, state: &State) -> (Vec<usize>, Box<[bool]>) {
+fn identify_busy_ants(player: usize, view: &View, state: &State, candidates: &mut FnvHashSet<usize>) -> (Vec<usize>, Box<[bool]>) {
     let num_cells = view.layout.cells.len();
 
     let mut busy = Vec::new();
@@ -103,7 +103,9 @@ fn identify_busy_ants(player: usize, view: &View, state: &State) -> (Vec<usize>,
     for &candidate in view.closest_resources[player].iter() {
         if state.resources[candidate] <= 0 { continue } // Only consider cells that have resources
         if harvest_distances[candidate] == i32::MAX { continue } // Only consider cells that are connected to the base through a harvest chain
+        if !candidates.contains(&candidate) { continue } // Only consider cells that are candidates for harvesting
 
+        candidates.remove(&candidate);
         harvests.push(candidate);
         mark_return_path_as_busy(candidate, &harvest_distances, &view.layout, &state.num_ants[player], &mut busy);
     }
