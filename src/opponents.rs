@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 use std::fmt::Display;
 
-use super::inputs::{Content,Layout};
+use super::harvesting;
+use super::inputs::{Content,Layout,NUM_PLAYERS};
 use super::fnv::FnvHashSet;
 use super::view::*;
 use super::movement::{self,Assignments};
@@ -35,6 +36,8 @@ impl Display for Countermoves {
 pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Countermoves {
     let num_cells = view.layout.cells.len();
     let total_ants = state.total_ants[player];
+    let enemy = (player + 1) % NUM_PLAYERS;
+    let attacks = harvesting::calculate_max_flow_for_player(enemy, view, &state.num_ants);
 
     // Extend to collect nearby crystals
     let evaluator = HarvestEvaluator::new(player, state);
@@ -55,7 +58,7 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
         let initial_collection_rate = evaluator.calculate_harvest_rate(initial_harvests, initial_spread);
 
         // Find closest next target
-        if let Some((_, _, target)) =
+        if let Some((_, extra_spread, target)) =
             candidates.iter()
             .filter_map(|&target| {
                 let extra_spread = harvest_mesh.distance_to(target);
@@ -76,10 +79,13 @@ pub fn enact_countermoves(player: usize, view: &View, state: &State) -> Counterm
             harvests.push(target);
             candidates.remove(&target);
 
+            let ants_per_cell = state.total_ants[player] / (initial_spread + extra_spread);
             let source = harvest_mesh.nearest(target, &view.layout);
             let path: Vec<usize> = nearby.calculate_path(source, target, &view.layout, &view.paths).collect();
-            beacons.extend(path.iter().cloned());
-            harvest_mesh.extend(path.iter().cloned(), &view.layout);
+            if !path.iter().any(|&cell| attacks[cell] > ants_per_cell) { // Only take paths that are not blocked by the enemy
+                beacons.extend(path.iter().cloned());
+                harvest_mesh.extend(path.iter().cloned(), &view.layout);
+            }
 
         } else {
             break; // no valid countermoves
