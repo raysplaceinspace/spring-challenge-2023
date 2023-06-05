@@ -471,7 +471,8 @@ fn bubble_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
 fn move_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
     if plan.len() < 2 { return }
     let from = rng.gen_range(0 .. plan.len());
-    let to = rng.gen_range(0 .. plan.len()); // -1 because insertion array is one shorter, but +1 because we want to be able to insert at the end as well, so it cancels out
+    let mut to = rng.gen_range(0 .. (plan.len()-1)); // -1 because insertion array is one shorter, but +1 because we want to be able to insert at the end as well, but then -1 again because we don't want to pick the same location twice
+    if to >= from { to += 1 }
 
     let milestone = plan.remove(from);
     if to >= plan.len() {
@@ -484,7 +485,8 @@ fn move_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
 fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
     if plan.len() < 2 { return }
     let from = rng.gen_range(0 .. plan.len());
-    let to = rng.gen_range(0 .. plan.len());
+    let mut to = rng.gen_range(0 .. (plan.len() - 1));
+    if to >= from { to += 1 }
 
     plan.swap(from, to);
 }
