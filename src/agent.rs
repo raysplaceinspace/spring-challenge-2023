@@ -9,8 +9,8 @@ use super::planning::{self,*};
 use super::solving::{Candidate,Solver,SolverSession};
 use super::valuation::SpawnEvaluator;
 
-const ADVERSARY_MS: u128 = 30;
-const SEARCH_MS: u128 = 60;
+const ADVERSARY_MS: u128 = 10;
+const SEARCH_MS: u128 = 80;
 
 pub struct Agent {
     solvers: [Solver; NUM_PLAYERS],
