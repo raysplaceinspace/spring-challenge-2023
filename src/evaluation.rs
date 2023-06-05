@@ -4,7 +4,7 @@ use super::simulation;
 use super::view::{self,*};
 
 const NUM_TICKS: u32 = 100;
-const DECAY_RATE: f32 = 0.95;
+const DECAY_RATE: f32 = 0.98;
 const WIN_PAYOFF: f32 = 1.0;
 
 #[derive(Clone,Debug)]
