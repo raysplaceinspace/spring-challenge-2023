@@ -13,7 +13,7 @@ const QUANTILE_SAMPLE_LIMIT: usize = 32;
 
 const LEARNING_RATE: f32 = 0.01;
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Debug)]
 enum SolverType {
     Generation,
     Mutation,
@@ -117,6 +117,19 @@ impl Solver {
             elapsed_ms: start.elapsed().as_millis() as u128,
         };
         (initial, best, stats)
+    }
+}
+impl Display for Solver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Solvers:")?;
+        for (index,quantile) in self.solver_quantiles.iter().enumerate() {
+            write!(f, " {:?}={:.2}", SOLVERS[index], quantile)?;
+        }
+        writeln!(f)?;
+
+        writeln!(f, "Mutations: {}", self.mutator)?;
+
+        Ok(())
     }
 }
 
@@ -405,6 +418,24 @@ impl PheromoneMatrix {
         }
     }
 }
+impl Display for PheromoneMatrix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut is_first = true;
+        for (base_id, &base) in self.bases.iter().enumerate() {
+            if is_first {
+                is_first = false;
+            } else {
+                writeln!(f)?;
+            }
+
+            write!(f, "Base {}:", base)?;
+            for (vein,quantile) in self.head_quantiles[base_id].iter().enumerate() {
+                write!(f, " {:?}={:.2}", self.veins[vein], quantile)?;
+            }
+        }
+        Ok(())
+    }
+}
 
 pub struct Walk {
     pub base_id: usize, // base id (not the cell id)
@@ -420,19 +451,23 @@ impl Walk {
 }
 
 
-#[derive(Clone,Copy,PartialEq,Eq,Hash)]
+#[derive(Clone,Copy,Debug,PartialEq,Eq,Hash)]
 pub enum Mutation {
     Bubble,
     Move,
     Swap,
+    Shift,
+    Reverse,
     Barrier,
 }
 
-const NUM_MUTATIONS: usize = 4;
+const NUM_MUTATIONS: usize = 6;
 const MUTATIONS: [Mutation; NUM_MUTATIONS] = [
     Mutation::Bubble,
     Mutation::Move,
     Mutation::Swap,
+    Mutation::Shift,
+    Mutation::Reverse,
     Mutation::Barrier,
 ];
 
@@ -452,6 +487,8 @@ impl Mutator {
             Mutation::Bubble => bubble_mutation(plan, rng),
             Mutation::Move => move_mutation(plan, rng),
             Mutation::Swap => swap_mutation(plan, rng),
+            Mutation::Shift => shift_mutation(plan, rng),
+            Mutation::Reverse => reverse_mutation(plan, rng),
             Mutation::Barrier => barrier_mutation(plan, rng),
         };
         mutation
@@ -459,6 +496,20 @@ impl Mutator {
 
     pub fn learn(&mut self, quantile: Quantile, mutation: Mutation) {
         learn_quantile(&mut self.mutation_quantiles[mutation as usize], quantile);
+    }
+}
+impl Display for Mutator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut is_first = true;
+        for (index,quantile) in self.mutation_quantiles.iter().enumerate() {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " ")?;
+            }
+            write!(f, "{:?}={:.2}", MUTATIONS[index], quantile)?;
+        }
+        Ok(())
     }
 }
 
@@ -489,6 +540,26 @@ fn swap_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
     if to >= from { to += 1 }
 
     plan.swap(from, to);
+}
+
+fn shift_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let length = rng.gen_range(1 .. plan.len());
+    let from = rng.gen_range(0 .. (plan.len() - length + 1));
+    let mut to = rng.gen_range(0 .. (plan.len() - length));
+    if to >= from { to += 1 }
+
+    let elems: Vec<Milestone> = plan.splice(from .. (from + length), std::iter::empty()).collect();
+    plan.splice(to .. to, elems);
+}
+
+fn reverse_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
+    if plan.len() < 2 { return }
+    let length = rng.gen_range(1 ..= plan.len());
+    let from = rng.gen_range(0 ..= (plan.len() - length));
+
+    let elems: Vec<Milestone> = plan.splice(from .. (from + length), std::iter::empty()).collect();
+    plan.splice(from .. from, elems.into_iter().rev());
 }
 
 fn barrier_mutation(plan: &mut Vec<Milestone>, rng: &mut StdRng) {
