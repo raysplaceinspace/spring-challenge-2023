@@ -10,7 +10,7 @@ use super::solving::{Candidate,Solver,SolverSession};
 use super::valuation::SpawnEvaluator;
 
 const SEARCH_MS: u128 = 90;
-const SELF_OPTIMIZE_FRACTION: f32 = 0.8;
+const SELF_OPTIMIZE_FRACTION: f32 = 0.7;
 
 pub struct Agent {
     solvers: [Solver; NUM_PLAYERS],
